@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "833089927966",
+    "project_id": "oasis-paris",
+    "storage_bucket": "oasis-paris.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:833089927966:android:87de1ee7abe4f09985e70f",
+        "android_client_info": {
+          "package_name": "com.example.oasis_paris"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCycmFPZ4ge_xc5zQmGWA-B0EiwJIXqB44"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
