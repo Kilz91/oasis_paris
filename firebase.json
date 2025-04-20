@@ -1,1 +1,45 @@
-{"flutter":{"platforms":{"android":{"default":{"projectId":"oasis-paris","appId":"1:833089927966:android:87de1ee7abe4f09985e70f","fileOutput":"android/app/google-services.json"}},"ios":{"default":{"projectId":"oasis-paris","appId":"1:833089927966:ios:d38d3ee27dd42eb585e70f","uploadDebugSymbols":false,"fileOutput":"ios/Runner/GoogleService-Info.plist"}},"macos":{"default":{"projectId":"oasis-paris","appId":"1:833089927966:ios:d38d3ee27dd42eb585e70f","uploadDebugSymbols":false,"fileOutput":"macos/Runner/GoogleService-Info.plist"}},"dart":{"lib/firebase_options.dart":{"projectId":"oasis-paris","configurations":{"android":"1:833089927966:android:87de1ee7abe4f09985e70f","ios":"1:833089927966:ios:d38d3ee27dd42eb585e70f","macos":"1:833089927966:ios:d38d3ee27dd42eb585e70f","web":"1:833089927966:web:14bfc44fca96db8585e70f","windows":"1:833089927966:web:945967197f2d0c5a85e70f"}}}}}}
+{
+  "flutter": {
+    "platforms": {
+      "android": {
+        "default": {
+          "projectId": "oasis-paris",
+          "appId": "1:833089927966:android:87de1ee7abe4f09985e70f",
+          "fileOutput": "android/app/google-services.json"
+        }
+      },
+      "ios": {
+        "default": {
+          "projectId": "oasis-paris",
+          "appId": "1:833089927966:ios:d38d3ee27dd42eb585e70f",
+          "uploadDebugSymbols": false,
+          "fileOutput": "ios/Runner/GoogleService-Info.plist"
+        }
+      },
+      "macos": {
+        "default": {
+          "projectId": "oasis-paris",
+          "appId": "1:833089927966:ios:d38d3ee27dd42eb585e70f",
+          "uploadDebugSymbols": false,
+          "fileOutput": "macos/Runner/GoogleService-Info.plist"
+        }
+      },
+      "dart": {
+        "lib/firebase_options.dart": {
+          "projectId": "oasis-paris",
+          "configurations": {
+            "android": "1:833089927966:android:87de1ee7abe4f09985e70f",
+            "ios": "1:833089927966:ios:d38d3ee27dd42eb585e70f",
+            "macos": "1:833089927966:ios:d38d3ee27dd42eb585e70f",
+            "web": "1:833089927966:web:14bfc44fca96db8585e70f",
+            "windows": "1:833089927966:web:945967197f2d0c5a85e70f"
+          }
+        }
+      }
+    }
+  },
+  "firestore": {
+    "rules": "firestore.rules",
+    "indexes": "firestore.indexes.json"
+  }
+}

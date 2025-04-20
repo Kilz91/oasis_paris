@@ -3,7 +3,6 @@ import 'firebase_options.dart';
 import 'package:flutter/material.dart';
 import 'login_page.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'profil.dart';
 import 'package:firebase_app_check/firebase_app_check.dart';
 import 'navbar.dart';
 

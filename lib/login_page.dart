@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'profil.dart'; // N'oublie pas d'importer ta page Profil
+import 'register_page.dart'; 
+
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key, required this.title});
@@ -92,20 +94,13 @@ class _LoginPageState extends State<LoginPage> {
           SizedBox(height: 16),
           TextButton(
             onPressed: () {
-              if (emailController.text.isNotEmpty &&
-                  passwordController.text.length >= 6) {
-                signUp();
-              } else {
-                ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(
-                    content: Text(
-                      'Veuillez entrer un email et un mot de passe valides pour l\'inscription.',
-                    ),
-                  ),
-                );
-              }
+              // Redirection vers la page d'inscription
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => RegisterPage(title: 'Inscription',)),
+              );
             },
-            child: Text('Inscription'),
+            child: Text('Pas encore de compte? Inscrivez-vous!'),
           ),
         ],
       ),
@@ -132,33 +127,6 @@ class _LoginPageState extends State<LoginPage> {
       ScaffoldMessenger.of(
         context,
       ).showSnackBar(SnackBar(content: Text('Login échoué: ${e.toString()}')));
-    } finally {
-      setState(() {
-        _isLoading = false;
-      });
-    }
-  }
-
-  // Fonction pour s'inscrire
-  Future<void> signUp() async {
-    final auth = FirebaseAuth.instance;
-
-    setState(() {
-      _isLoading = true;
-    });
-
-    try {
-      await auth.createUserWithEmailAndPassword(
-        email: emailController.text,
-        password: passwordController.text,
-      );
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(SnackBar(content: Text('Inscription réussie!')));
-    } catch (e) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Inscription échouée: ${e.toString()}')),
-      );
     } finally {
       setState(() {
         _isLoading = false;

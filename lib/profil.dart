@@ -1,17 +1,64 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:cloud_firestore/cloud_firestore.dart'; // Ajout de l'import pour Firestore
 import 'package:image_picker/image_picker.dart';
 import 'dart:io';
 import 'package:firebase_storage/firebase_storage.dart';
 import 'login_page.dart';
-import 'navbar.dart';
 
-class ProfilPage extends StatelessWidget {
+class ProfilPage extends StatefulWidget {
+  @override
+  _ProfilPageState createState() => _ProfilPageState();
+}
+
+class _ProfilPageState extends State<ProfilPage> {
+  Map<String, dynamic>? userData;
+  bool isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadUserData();
+  }
+
+  // Charger les données utilisateur depuis Firestore
+  Future<void> _loadUserData() async {
+    final user = FirebaseAuth.instance.currentUser;
+    if (user != null) {
+      try {
+        final doc = await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
+        if (doc.exists) {
+          setState(() {
+            userData = doc.data();
+            isLoading = false;
+          });
+        } else {
+          setState(() => isLoading = false);
+        }
+      } catch (e) {
+        print('Erreur lors du chargement des données utilisateur: $e');
+        setState(() => isLoading = false);
+      }
+    } else {
+      setState(() => isLoading = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final user = FirebaseAuth.instance.currentUser;
 
     if (user == null) return _buildNotConnected(context);
+    
+    if (isLoading) {
+      return Scaffold(
+        appBar: AppBar(
+          title: Text('Mon Profil', style: TextStyle(color: Colors.black)),
+          backgroundColor: Colors.white,
+        ),
+        body: Center(child: CircularProgressIndicator()),
+      );
+    }
 
     return Scaffold(
       appBar: AppBar(
@@ -33,8 +80,9 @@ class ProfilPage extends StatelessWidget {
                         : AssetImage('assets/profil.png') as ImageProvider,
               ),
               SizedBox(height: 16),
+              // Afficher les données de Firestore
               Text(
-                'Nom: ${user.displayName ?? 'Nom non disponible'}',
+                'Nom: ${userData?['nom'] ?? 'Non renseigné'}',
                 style: TextStyle(
                   fontSize: 20,
                   fontWeight: FontWeight.bold,
@@ -42,15 +90,27 @@ class ProfilPage extends StatelessWidget {
                 ),
               ),
               Text(
-                'Email: ${user.email ?? 'Email non disponible'}',
+                'Prénom: ${userData?['prenom'] ?? 'Non renseigné'}',
+                style: TextStyle(
+                  fontSize: 20,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.black,
+                ),
+              ),
+              Text(
+                'Email: ${userData?['email'] ?? user.email ?? 'Email non disponible'}',
+                style: TextStyle(fontSize: 18, color: Colors.black),
+              ),
+              Text(
+                'Téléphone: ${userData?['telephone'] ?? 'Non renseigné'}',
                 style: TextStyle(fontSize: 18, color: Colors.black),
               ),
               SizedBox(height: 24),
               _buildButton('Modifier le profil', Colors.teal, () {
                 Navigator.push(
                   context,
-                  MaterialPageRoute(builder: (_) => EditProfilePage()),
-                );
+                  MaterialPageRoute(builder: (_) => EditProfilePage(userData: userData)),
+                ).then((_) => _loadUserData()); // Recharger les données après la modification
               }),
               SizedBox(height: 16),
               _buildButton('Se déconnecter', Colors.redAccent, () async {
@@ -112,16 +172,22 @@ class ProfilPage extends StatelessWidget {
 }
 
 class EditProfilePage extends StatefulWidget {
+  final Map<String, dynamic>? userData;
+
+  EditProfilePage({this.userData});
+
   @override
   _EditProfilePageState createState() => _EditProfilePageState();
 }
 
 class _EditProfilePageState extends State<EditProfilePage> {
   final _nameCtrl = TextEditingController();
+  final _prenomCtrl = TextEditingController(); // Ajout du contrôleur pour le prénom
   final _emailCtrl = TextEditingController();
   final _currentPwdCtrl = TextEditingController();
   final _newPwdCtrl = TextEditingController();
   final _confirmPwdCtrl = TextEditingController();
+  final _phoneCtrl = TextEditingController();
   final _picker = ImagePicker();
   File? _imageFile;
   String _error = '';
@@ -130,8 +196,10 @@ class _EditProfilePageState extends State<EditProfilePage> {
   void initState() {
     super.initState();
     final user = FirebaseAuth.instance.currentUser;
-    _nameCtrl.text = user?.displayName ?? '';
-    _emailCtrl.text = user?.email ?? '';
+    _nameCtrl.text = widget.userData?['nom'] ?? user?.displayName ?? '';
+    _prenomCtrl.text = widget.userData?['prenom'] ?? ''; // Initialiser avec la valeur de prénom
+    _emailCtrl.text = widget.userData?['email'] ?? user?.email ?? '';
+    _phoneCtrl.text = widget.userData?['telephone'] ?? '';
   }
 
   @override
@@ -168,9 +236,13 @@ class _EditProfilePageState extends State<EditProfilePage> {
                 _pickImage,
               ),
               SizedBox(height: 24),
-              _buildField(_nameCtrl, 'Pseudo'),
+              _buildField(_nameCtrl, 'Nom'),
+              SizedBox(height: 16),
+              _buildField(_prenomCtrl, 'Prénom'),
               SizedBox(height: 16),
               _buildField(_emailCtrl, 'Email'),
+              SizedBox(height: 16),
+              _buildField(_phoneCtrl, 'Téléphone'),
               SizedBox(height: 16),
               _buildField(
                 _currentPwdCtrl,
@@ -276,6 +348,14 @@ class _EditProfilePageState extends State<EditProfilePage> {
 
       if (_newPwdCtrl.text.isNotEmpty)
         await user?.updatePassword(_newPwdCtrl.text);
+
+      // Mettre à jour les données dans Firestore
+      await FirebaseFirestore.instance.collection('users').doc(user?.uid).update({
+        'nom': _nameCtrl.text,
+        'prenom': _prenomCtrl.text, // Mettre à jour le prénom
+        'email': _emailCtrl.text,
+        'telephone': _phoneCtrl.text,
+      });
 
       await user?.reload();
 
