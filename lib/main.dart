@@ -35,9 +35,8 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
       title: 'Oasis Paris',
       theme: ThemeData(primarySwatch: Colors.blue),
-      debugShowCheckedModeBanner:
-          false, // Désactive la bande rouge "debug" en haut à droite
-      home: HomePage(), // Redirection vers HomePage pour gérer la connexion
+      debugShowCheckedModeBanner: false,
+      home: HomePage(),
     );
   }
 }
