@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:oasis_paris/profil.dart';
+import 'friend_page.dart';
 
 class NavbarPage extends StatelessWidget {
   @override
@@ -38,6 +39,12 @@ class NavbarPage extends StatelessWidget {
               Navigator.push(
                 context,
                 MaterialPageRoute(builder: (_) => ProfilPage()),
+              );
+              break;
+            case 3:
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => FriendPage()),
               );
               break;
             // Pas de navigation pour les autres éléments pour l'instant

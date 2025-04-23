@@ -17,7 +17,7 @@ dependencies:
   firebase_app_check: ^0.3.2+5
   image_picker: ^1.0.7
   cached_network_image: ^3.2.0
-
+  badges: ^3.1.2  # Ajout du package badges pour les notifications
 
 dev_dependencies:
   flutter_test:

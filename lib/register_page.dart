@@ -172,37 +172,37 @@ class _RegisterPageState extends State<RegisterPage> {
           'dateCreation': FieldValue.serverTimestamp(), // Ajout d'un timestamp de création
         });
         
-        // Vérifier si le widget est toujours monté avant d'utiliser le contexte
+// Vérifier si le widget est toujours monté avant d'utiliser le contexte
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Inscription réussie! Données enregistrées dans Firestore'))
-          );
-        }
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('Inscription réussie! Données enregistrées dans Firestore'))
+        );
+}
       } catch (firestoreError) {
         // Permettre à l'utilisateur de continuer même si l'enregistrement dans Firestore échoue
         print('Erreur Firestore: $firestoreError');
-        
+
         // Vérifier si le widget est toujours monté avant d'utiliser le contexte
         if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Inscription réussie, mais une erreur est survenue lors de l\'enregistrement des données supplémentaires.'))
-          );
-        }
-      }
-    } catch (e) {
-      // Vérifier si le widget est toujours monté avant d'utiliser le contexte
-      if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Inscription échouée: ${e.toString()}')),
+          SnackBar(content: Text('Inscription réussie, mais une erreur est survenue lors de l\'enregistrement des données supplémentaires.'))
         );
       }
-    } finally {
-      // Vérifier si le widget est toujours monté avant de mettre à jour son état
+}
+    } catch (e) {
+// Vérifier si le widget est toujours monté avant d'utiliser le contexte
       if (mounted) {
-        setState(() {
-          _isLoading = false;
-        });
-      }
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Inscription échouée: ${e.toString()}')),
+      );
+}
+    } finally {
+// Vérifier si le widget est toujours monté avant de mettre à jour son état
+      if (mounted) {
+      setState(() {
+        _isLoading = false;
+      });
+}
     }
   }
 }
