@@ -182,7 +182,7 @@ class EditProfilePage extends StatefulWidget {
 
 class _EditProfilePageState extends State<EditProfilePage> {
   final _nameCtrl = TextEditingController();
-  final _prenomCtrl = TextEditingController(); // Ajout du contrôleur pour le prénom
+  final _prenomCtrl = TextEditingController();
   final _emailCtrl = TextEditingController();
   final _currentPwdCtrl = TextEditingController();
   final _newPwdCtrl = TextEditingController();
@@ -191,19 +191,25 @@ class _EditProfilePageState extends State<EditProfilePage> {
   final _picker = ImagePicker();
   File? _imageFile;
   String _error = '';
+  
+  // Stocker une référence au contexte de navigation qui est sûre à utiliser
+  late BuildContext _safeContext;
 
   @override
   void initState() {
     super.initState();
     final user = FirebaseAuth.instance.currentUser;
     _nameCtrl.text = widget.userData?['nom'] ?? user?.displayName ?? '';
-    _prenomCtrl.text = widget.userData?['prenom'] ?? ''; // Initialiser avec la valeur de prénom
+    _prenomCtrl.text = widget.userData?['prenom'] ?? '';
     _emailCtrl.text = widget.userData?['email'] ?? user?.email ?? '';
     _phoneCtrl.text = widget.userData?['telephone'] ?? '';
   }
 
   @override
   Widget build(BuildContext context) {
+    // Stocker une référence au contexte actif qui est sûre à utiliser plus tard
+    _safeContext = context;
+    
     final user = FirebaseAuth.instance.currentUser;
 
     return Scaffold(
@@ -352,14 +358,15 @@ class _EditProfilePageState extends State<EditProfilePage> {
       // Mettre à jour les données dans Firestore
       await FirebaseFirestore.instance.collection('users').doc(user?.uid).update({
         'nom': _nameCtrl.text,
-        'prenom': _prenomCtrl.text, // Mettre à jour le prénom
+        'prenom': _prenomCtrl.text,
         'email': _emailCtrl.text,
         'telephone': _phoneCtrl.text,
       });
 
       await user?.reload();
 
-      ScaffoldMessenger.of(context).showSnackBar(
+      // Utiliser le contexte sûr stocké précédemment
+      ScaffoldMessenger.of(_safeContext).showSnackBar(
         SnackBar(
           content: Text(
             'Profil mis à jour avec succès.',
@@ -368,9 +375,23 @@ class _EditProfilePageState extends State<EditProfilePage> {
           backgroundColor: Colors.greenAccent,
         ),
       );
-      Navigator.pop(context);
+      
+      // Utiliser le contexte sûr pour la navigation
+      Navigator.pop(_safeContext);
     } catch (e) {
       setState(() => _error = 'Erreur : ${e.toString()}');
     }
+  }
+  
+  @override
+  void dispose() {
+    _nameCtrl.dispose();
+    _prenomCtrl.dispose();
+    _emailCtrl.dispose();
+    _currentPwdCtrl.dispose();
+    _newPwdCtrl.dispose();
+    _confirmPwdCtrl.dispose();
+    _phoneCtrl.dispose();
+    super.dispose();
   }
 }
