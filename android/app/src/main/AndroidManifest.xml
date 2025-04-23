@@ -3,6 +3,11 @@
         android:label="oasis_paris"
         android:name="${applicationName}"
         android:icon="@mipmap/ic_launcher">
+        <!-- Ajout de la clé API Google Maps -->
+        <meta-data
+            android:name="com.google.android.geo.API_KEY"
+            android:value="AIzaSyB3khkVur5wUe7fYDZxN5H1-Qu_cC-3xjw" />
+        
         <activity
             android:name=".MainActivity"
             android:exported="true"

@@ -2,16 +2,24 @@ class Ilot {
   final String nom;
   final double latitude;
   final double longitude;
+  final String adresse; // Ajout du champ adresse
 
-  Ilot({required this.nom, required this.latitude, required this.longitude});
+  Ilot({
+    required this.nom,
+    required this.latitude,
+    required this.longitude,
+    this.adresse = '', // Valeur par défaut vide
+  });
 
   factory Ilot.fromJson(Map<String, dynamic> json) {
-    // Récupérer le nom de l'espace vert
+    // Récupérer le nom et l'adresse de l'espace vert
     final nom = json['nom'] ?? 'Nom inconnu';
+    final adresse = json['adresse'] ?? ''; // Récupérer l'adresse depuis JSON
     final geoShape = json['geo_shape'];
 
     print('---');
     print('Nom: $nom');
+    print('Adresse: $adresse'); // Imprimer l'adresse pour vérifier
     print(
       'GeoShape: $geoShape',
     ); // Imprimer le geoShape complet pour vérifier son contenu
@@ -67,6 +75,7 @@ class Ilot {
               nom: nom,
               longitude: lon.toDouble(),
               latitude: lat.toDouble(),
+              adresse: adresse,
             );
           } else {
             print('Les coordonnées ne sont pas valides.');
@@ -77,6 +86,6 @@ class Ilot {
 
     // Si la géométrie ou les coordonnées sont invalides
     print('Retour par défaut avec coordonnées 0.0, 0.0');
-    return Ilot(nom: nom, latitude: 0.0, longitude: 0.0);
+    return Ilot(nom: nom, latitude: 0.0, longitude: 0.0, adresse: adresse);
   }
 }
