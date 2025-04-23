@@ -1,15 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:oasis_paris/profil.dart';
+import 'ilots_page.dart';
 
 class NavbarPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(
-        title: Text("Navigation Bar"),
-        backgroundColor: Colors.teal,
-      ),
-      body: Center(child: Text("Bienvenue dans la navbar page")),
+      appBar: AppBar(title: Text("OASIS PARIS"), backgroundColor: Colors.teal),
+      body: Center(child: Text("Bienvenue dans la carte")),
       bottomNavigationBar: BottomNavigationBar(
         type:
             BottomNavigationBarType
@@ -34,6 +32,13 @@ class NavbarPage extends StatelessWidget {
         ],
         onTap: (index) {
           switch (index) {
+            case 1:
+              // Navigation vers la carte
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => IlotsPage()),
+              );
+              break;
             case 2:
               Navigator.push(
                 context,

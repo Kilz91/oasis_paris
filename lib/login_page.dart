@@ -1,8 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'profil.dart'; // N'oublie pas d'importer ta page Profil
-import 'register_page.dart'; 
-
+import 'register_page.dart';
 
 class LoginPage extends StatefulWidget {
   const LoginPage({super.key, required this.title});
@@ -97,7 +96,9 @@ class _LoginPageState extends State<LoginPage> {
               // Redirection vers la page d'inscription
               Navigator.push(
                 context,
-                MaterialPageRoute(builder: (context) => RegisterPage(title: 'Inscription',)),
+                MaterialPageRoute(
+                  builder: (context) => RegisterPage(title: 'Inscription'),
+                ),
               );
             },
             child: Text('Pas encore de compte? Inscrivez-vous!'),
@@ -114,6 +115,32 @@ class _LoginPageState extends State<LoginPage> {
     setState(() {
       _isLoading = true;
     });
+
+    // Vérification de l'email
+    if (!RegExp(r'^[^@]+@[^@]+\.[^@]+').hasMatch(emailController.text)) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Veuillez entrer un email valide.')),
+      );
+      setState(() {
+        _isLoading = false;
+      });
+      return;
+    }
+
+    // Vérification du mot de passe
+    if (passwordController.text.length < 6) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Le mot de passe doit comporter au moins 6 caractères.',
+          ),
+        ),
+      );
+      setState(() {
+        _isLoading = false;
+      });
+      return;
+    }
 
     try {
       await auth.signInWithEmailAndPassword(
