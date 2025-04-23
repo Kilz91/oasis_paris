@@ -2,17 +2,16 @@ import 'package:flutter/material.dart';
 import 'package:oasis_paris/profil.dart';
 import 'ilots_page.dart';
 import 'friend_page.dart';
+import 'map_page.dart';  // Import de la nouvelle page de carte
 
 class NavbarPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: Text("OASIS PARIS"), backgroundColor: Colors.teal),
-      body: Center(child: Text("Bienvenue dans la carte")),
+      body: MapPage(),  // Utiliser directement la carte comme page d'accueil
       bottomNavigationBar: BottomNavigationBar(
-        type:
-            BottomNavigationBarType
-                .fixed, // Assure-toi que les icônes sont alignées horizontalement
+        type: BottomNavigationBarType.fixed,
         items: [
           BottomNavigationBarItem(
             icon: Image.asset('assets/map.png', width: 30, height: 30),
@@ -33,8 +32,11 @@ class NavbarPage extends StatelessWidget {
         ],
         onTap: (index) {
           switch (index) {
+            case 0:
+              // Reste sur la page de carte (déjà affichée)
+              break;
             case 1:
-              // Navigation vers la carte
+              // Navigation vers la page de liste des îlots
               Navigator.push(
                 context,
                 MaterialPageRoute(builder: (_) => IlotsPage()),
@@ -52,7 +54,6 @@ class NavbarPage extends StatelessWidget {
                 MaterialPageRoute(builder: (_) => FriendPage()),
               );
               break;
-            // Pas de navigation pour les autres éléments pour l'instant
           }
         },
       ),
