@@ -26,7 +26,11 @@ class _ProfilPageState extends State<ProfilPage> {
     final user = FirebaseAuth.instance.currentUser;
     if (user != null) {
       try {
-        final doc = await FirebaseFirestore.instance.collection('users').doc(user.uid).get();
+        final doc =
+            await FirebaseFirestore.instance
+                .collection('users')
+                .doc(user.uid)
+                .get();
         if (doc.exists) {
           setState(() {
             userData = doc.data();
@@ -49,7 +53,7 @@ class _ProfilPageState extends State<ProfilPage> {
     final user = FirebaseAuth.instance.currentUser;
 
     if (user == null) return _buildNotConnected(context);
-    
+
     if (isLoading) {
       return Scaffold(
         appBar: AppBar(
@@ -109,8 +113,12 @@ class _ProfilPageState extends State<ProfilPage> {
               _buildButton('Modifier le profil', Colors.teal, () {
                 Navigator.push(
                   context,
-                  MaterialPageRoute(builder: (_) => EditProfilePage(userData: userData)),
-                ).then((_) => _loadUserData()); // Recharger les données après la modification
+                  MaterialPageRoute(
+                    builder: (_) => EditProfilePage(userData: userData),
+                  ),
+                ).then(
+                  (_) => _loadUserData(),
+                ); // Recharger les données après la modification
               }),
               SizedBox(height: 16),
               _buildButton('Se déconnecter', Colors.redAccent, () async {
@@ -191,7 +199,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
   final _picker = ImagePicker();
   File? _imageFile;
   String _error = '';
-  
+
   // Stocker une référence au contexte de navigation qui est sûre à utiliser
   // Cela évite d'essayer d'accéder à un widget ancêtre lorsque l'élément est déjà désactivé
   late BuildContext _context;
@@ -208,6 +216,9 @@ class _EditProfilePageState extends State<EditProfilePage> {
 
   @override
   Widget build(BuildContext context) {
+// Stocker une référence au contexte actif qui est sûre à utiliser plus tard
+    _safeContext = context;
+
     // Stocker le contexte actif pour une utilisation ultérieure
     _context = context;
     
@@ -384,6 +395,20 @@ class _EditProfilePageState extends State<EditProfilePage> {
         await user.sendEmailVerification();
       }
 
+      if (_newPwdCtrl.text.isNotEmpty)
+        await user?.updatePassword(_newPwdCtrl.text);
+
+      // Mettre à jour les données dans Firestore
+      await FirebaseFirestore.instance
+          .collection('users')
+          .doc(user?.uid)
+          .update({
+            'nom': _nameCtrl.text,
+            'prenom': _prenomCtrl.text,
+            'email': _emailCtrl.text,
+            'telephone': _phoneCtrl.text,
+          });
+
       // Mettre à jour les données dans Firestore avec l'ID utilisateur existant
       await FirebaseFirestore.instance.collection('users').doc(user.uid).update({
         'nom': _nameCtrl.text,
@@ -405,17 +430,26 @@ class _EditProfilePageState extends State<EditProfilePage> {
             ),
             backgroundColor: Colors.greenAccent,
           ),
+
+          backgroundColor: Colors.greenAccent,
+        ),
+      );
+
+      // Utiliser le contexte sûr pour la navigation
+      Navigator.pop(_safeContext);
+
         );
         
         Navigator.pop(_context);
       }
+
     } catch (e) {
       if (mounted) {
         setState(() => _error = 'Erreur : ${e.toString()}');
       }
     }
   }
-  
+
   @override
   void dispose() {
     _nameCtrl.dispose();

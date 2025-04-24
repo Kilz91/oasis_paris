@@ -19,7 +19,9 @@ dependencies:
   cached_network_image: ^3.2.0
   http: ^0.13.6
   google_maps_flutter: ^2.2.5
-  intl: ^0.19.0  # Ajout du package intl pour le formatage des dates
+  intl: ^0.19.0 
+
+  shared_preferences: ^2.2.2
   
   badges: ^3.1.2  # Ajout du package badges pour les notifications
 
@@ -36,3 +38,4 @@ flutter:
     - assets/recherche.png
     - assets/reglages.png
     - assets/friends.png
+    - assets/chat.png
