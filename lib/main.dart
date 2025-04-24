@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'login_page.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:firebase_app_check/firebase_app_check.dart';
+import 'package:intl/date_symbol_data_local.dart'; // Import pour initialiser les données de date localisées
 import 'navbar.dart';
 
 void main() async {
@@ -22,8 +23,11 @@ void main() async {
     instance.setTokenAutoRefreshEnabled(
       true,
     ); // Rafraîchissement automatique activé
+    
+    // Initialisation des données de formatage de date pour la locale française
+    await initializeDateFormatting('fr_FR', null);
   } catch (e) {
-    print('Erreur lors de l\'initialisation de Firebase : $e');
+    print('Erreur lors de l\'initialisation de Firebase ou des données de localisation : $e');
   }
 
   runApp(MyApp());
