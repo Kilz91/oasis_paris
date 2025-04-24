@@ -1,15 +1,17 @@
 import 'package:flutter/material.dart';
+import 'package:oasis_paris/chat.dart';
 import 'package:oasis_paris/profil.dart';
 import 'ilots_page.dart';
 import 'friend_page.dart';
-import 'map_page.dart';  // Import de la nouvelle page de carte
+import 'map_page.dart';
+import 'friends_for_chat.dart';
 
 class NavbarPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: Text("OASIS PARIS"), backgroundColor: Colors.teal),
-      body: MapPage(),  // Utiliser directement la carte comme page d'accueil
+      body: MapPage(), // Utiliser directement la carte comme page d'accueil
       bottomNavigationBar: BottomNavigationBar(
         type: BottomNavigationBarType.fixed,
         items: [
@@ -28,6 +30,10 @@ class NavbarPage extends StatelessWidget {
           BottomNavigationBarItem(
             icon: Image.asset('assets/friends.png', width: 30, height: 30),
             label: 'Amis',
+          ),
+          BottomNavigationBarItem(
+            icon: Image.asset('assets/chat.png', width: 30, height: 30),
+            label: 'Messages',
           ),
         ],
         onTap: (index) {
@@ -52,6 +58,12 @@ class NavbarPage extends StatelessWidget {
               Navigator.push(
                 context,
                 MaterialPageRoute(builder: (_) => FriendPage()),
+              );
+              break;
+            case 4:
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (_) => FriendsForChatPage()),
               );
               break;
           }
