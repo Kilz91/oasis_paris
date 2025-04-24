@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'package:cloud_firestore/cloud_firestore.dart'; // Ajout de l'import pour Firestore
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:image_picker/image_picker.dart';
 import 'dart:io';
 import 'package:firebase_storage/firebase_storage.dart';
@@ -201,7 +201,8 @@ class _EditProfilePageState extends State<EditProfilePage> {
   String _error = '';
 
   // Stocker une référence au contexte de navigation qui est sûre à utiliser
-  late BuildContext _safeContext;
+  // Cela évite d'essayer d'accéder à un widget ancêtre lorsque l'élément est déjà désactivé
+  late BuildContext _context;
 
   @override
   void initState() {
@@ -215,9 +216,12 @@ class _EditProfilePageState extends State<EditProfilePage> {
 
   @override
   Widget build(BuildContext context) {
-    // Stocker une référence au contexte actif qui est sûre à utiliser plus tard
+// Stocker une référence au contexte actif qui est sûre à utiliser plus tard
     _safeContext = context;
 
+    // Stocker le contexte actif pour une utilisation ultérieure
+    _context = context;
+    
     final user = FirebaseAuth.instance.currentUser;
 
     return Scaffold(
@@ -328,36 +332,67 @@ class _EditProfilePageState extends State<EditProfilePage> {
 
   Future<void> _reauthenticate(String email, String password) async {
     final user = FirebaseAuth.instance.currentUser;
-    final cred = EmailAuthProvider.credential(email: email, password: password);
-    await user?.reauthenticateWithCredential(cred);
+    // Seulement si l'utilisateur existe
+    if (user != null && password.isNotEmpty) {
+      final cred = EmailAuthProvider.credential(email: email, password: password);
+      await user.reauthenticateWithCredential(cred);
+    } else {
+      throw FirebaseAuthException(
+        code: 'requires-recent-login',
+        message: 'Veuillez entrer votre mot de passe actuel pour continuer.',
+      );
+    }
   }
 
   Future<void> _updateProfile() async {
     final user = FirebaseAuth.instance.currentUser;
     setState(() => _error = '');
 
-    try {
-      await _reauthenticate(user?.email ?? '', _currentPwdCtrl.text);
+    if (user == null) {
+      setState(() => _error = 'Aucun utilisateur connecté.');
+      return;
+    }
 
-      if (_newPwdCtrl.text != _confirmPwdCtrl.text) {
-        setState(() => _error = 'Les mots de passe ne correspondent pas.');
-        return;
+    try {
+      // Vérifier si une modification sensible est tentée pour déterminer si la réauthentification est nécessaire
+      bool needsReauth = false;
+      if (_emailCtrl.text != user.email || _newPwdCtrl.text.isNotEmpty) {
+        needsReauth = true;
+      }
+      
+      // Réauthentification seulement si nécessaire
+      if (needsReauth) {
+        if (_currentPwdCtrl.text.isEmpty) {
+          setState(() => _error = 'Mot de passe actuel requis pour changer l\'email ou le mot de passe.');
+          return;
+        }
+        await _reauthenticate(user.email ?? '', _currentPwdCtrl.text);
       }
 
-      if (_nameCtrl.text.isNotEmpty)
-        await user?.updateDisplayName(_nameCtrl.text);
+      if (_newPwdCtrl.text.isNotEmpty) {
+        if (_newPwdCtrl.text != _confirmPwdCtrl.text) {
+          setState(() => _error = 'Les mots de passe ne correspondent pas.');
+          return;
+        }
+        await user.updatePassword(_newPwdCtrl.text);
+      }
+
+      if (_nameCtrl.text.isNotEmpty) {
+        await user.updateDisplayName(_nameCtrl.text);
+      }
 
       if (_imageFile != null) {
         final ref = FirebaseStorage.instance.ref().child(
-          'profile_pictures/${user?.uid}.png',
+          'profile_pictures/${user.uid}.png',
         );
         final url = await (await ref.putFile(_imageFile!)).ref.getDownloadURL();
-        await user?.updatePhotoURL(url);
+        await user.updatePhotoURL(url);
       }
 
-      if (_emailCtrl.text.isNotEmpty && _emailCtrl.text != user?.email) {
-        await user?.updateEmail(_emailCtrl.text);
-        await user?.sendEmailVerification();
+      // Modifier l'email en dernier pour éviter des problèmes d'authentification
+      if (_emailCtrl.text.isNotEmpty && _emailCtrl.text != user.email) {
+        await user.updateEmail(_emailCtrl.text);
+        await user.sendEmailVerification();
       }
 
       if (_newPwdCtrl.text.isNotEmpty)
@@ -374,23 +409,44 @@ class _EditProfilePageState extends State<EditProfilePage> {
             'telephone': _phoneCtrl.text,
           });
 
-      await user?.reload();
+      // Mettre à jour les données dans Firestore avec l'ID utilisateur existant
+      await FirebaseFirestore.instance.collection('users').doc(user.uid).update({
+        'nom': _nameCtrl.text,
+        'prenom': _prenomCtrl.text,
+        'email': _emailCtrl.text,
+        'telephone': _phoneCtrl.text,
+      });
 
-      // Utiliser le contexte sûr stocké précédemment
-      ScaffoldMessenger.of(_safeContext).showSnackBar(
-        SnackBar(
-          content: Text(
-            'Profil mis à jour avec succès.',
-            style: TextStyle(color: Colors.black),
+      // Recharger l'utilisateur pour s'assurer que nous avons les informations les plus récentes
+      await user.reload();
+
+      // Utiliser _context plutôt que le BuildContext du widget qui peut être déjà désactivé
+      if (mounted) {
+        ScaffoldMessenger.of(_context).showSnackBar(
+          SnackBar(
+            content: Text(
+              'Profil mis à jour avec succès.',
+              style: TextStyle(color: Colors.black),
+            ),
+            backgroundColor: Colors.greenAccent,
           ),
+
           backgroundColor: Colors.greenAccent,
         ),
       );
 
       // Utiliser le contexte sûr pour la navigation
       Navigator.pop(_safeContext);
+
+        );
+        
+        Navigator.pop(_context);
+      }
+
     } catch (e) {
-      setState(() => _error = 'Erreur : ${e.toString()}');
+      if (mounted) {
+        setState(() => _error = 'Erreur : ${e.toString()}');
+      }
     }
   }
 
