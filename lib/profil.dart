@@ -203,6 +203,7 @@ class _EditProfilePageState extends State<EditProfilePage> {
   // Stocker une référence au contexte de navigation qui est sûre à utiliser
   // Cela évite d'essayer d'accéder à un widget ancêtre lorsque l'élément est déjà désactivé
   late BuildContext _context;
+  late BuildContext _safeContext; // Added missing variable
 
   @override
   void initState() {
@@ -395,13 +396,10 @@ class _EditProfilePageState extends State<EditProfilePage> {
         await user.sendEmailVerification();
       }
 
-      if (_newPwdCtrl.text.isNotEmpty)
-        await user?.updatePassword(_newPwdCtrl.text);
-
       // Mettre à jour les données dans Firestore
       await FirebaseFirestore.instance
           .collection('users')
-          .doc(user?.uid)
+          .doc(user.uid)
           .update({
             'nom': _nameCtrl.text,
             'prenom': _prenomCtrl.text,
@@ -409,20 +407,12 @@ class _EditProfilePageState extends State<EditProfilePage> {
             'telephone': _phoneCtrl.text,
           });
 
-      // Mettre à jour les données dans Firestore avec l'ID utilisateur existant
-      await FirebaseFirestore.instance.collection('users').doc(user.uid).update({
-        'nom': _nameCtrl.text,
-        'prenom': _prenomCtrl.text,
-        'email': _emailCtrl.text,
-        'telephone': _phoneCtrl.text,
-      });
-
       // Recharger l'utilisateur pour s'assurer que nous avons les informations les plus récentes
       await user.reload();
 
       // Utiliser _context plutôt que le BuildContext du widget qui peut être déjà désactivé
       if (mounted) {
-        ScaffoldMessenger.of(_context).showSnackBar(
+        ScaffoldMessenger.of(_safeContext).showSnackBar(
           SnackBar(
             content: Text(
               'Profil mis à jour avec succès.',
@@ -430,17 +420,9 @@ class _EditProfilePageState extends State<EditProfilePage> {
             ),
             backgroundColor: Colors.greenAccent,
           ),
-
-          backgroundColor: Colors.greenAccent,
-        ),
-      );
-
-      // Utiliser le contexte sûr pour la navigation
-      Navigator.pop(_safeContext);
-
         );
         
-        Navigator.pop(_context);
+        Navigator.pop(_safeContext);
       }
 
     } catch (e) {
