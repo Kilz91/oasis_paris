@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart'; // Ajout de l'import de Firestore
-import '../profile/profil.dart'; // Mise à jour du chemin d'importation vers le bon dossier
+import '../../widgets/navbar/navbar.dart';
+import 'login_page.dart'; // Ajout de l'import pour LoginPage
 
 class RegisterPage extends StatefulWidget {
   const RegisterPage({super.key, required this.title});
@@ -24,28 +25,7 @@ class _RegisterPageState extends State<RegisterPage> {
   Widget build(BuildContext context) {
     return Scaffold(
       appBar: AppBar(title: Text(widget.title)),
-      body: StreamBuilder<User?>(
-        // Écoute l'état de connexion
-        stream: FirebaseAuth.instance.authStateChanges(),
-        builder: (context, snapshot) {
-          if (snapshot.connectionState == ConnectionState.active) {
-            if (snapshot.hasData) {
-              // L'utilisateur est connecté
-              Future.microtask(() {
-                Navigator.pushReplacement(
-                  context,
-                  MaterialPageRoute(builder: (context) => ProfilPage()),
-                );
-              });
-            }
-            // Si l'utilisateur n'est pas connecté, afficher la page de login
-            return _buildRegisterForm();
-          } else {
-            // Affiche un écran de chargement si l'état de la connexion est en cours
-            return Center(child: CircularProgressIndicator());
-          }
-        },
-      ),
+      body: _buildRegisterForm(),
     );
   }
 
@@ -104,23 +84,16 @@ class _RegisterPageState extends State<RegisterPage> {
           _isLoading
               ? CircularProgressIndicator()
               : ElevatedButton(
-                onPressed: () {
-                  if (emailController.text.isNotEmpty &&
-                      passwordController.text.length >= 6) {
-                    // Rediriger vers la page de login
-                    Navigator.pop(context);
-                  } else {
-                    ScaffoldMessenger.of(context).showSnackBar(
-                      SnackBar(
-                        content: Text(
-                          'Veuillez entrer un email et un mot de passe valides.',
-                        ),
-                      ),
+                  onPressed: () {
+                    // Utiliser pushAndRemoveUntil avec MaterialPageRoute pour la page de connexion
+                    Navigator.pushAndRemoveUntil(
+                      context,
+                      MaterialPageRoute(builder: (context) => LoginPage(title: 'Oasis Paris')),
+                      (route) => false, // Cette condition empêche tout retour arrière
                     );
-                  }
-                },
-                child: Text('Retour à Login'),
-              ),
+                  },
+                  child: Text('Retour à Login'),
+                ),
           SizedBox(height: 16),
           TextButton(
             onPressed: () {
@@ -147,7 +120,10 @@ class _RegisterPageState extends State<RegisterPage> {
   // Fonction pour s'inscrire
   Future<void> signUp() async {
     final auth = FirebaseAuth.instance;
-
+    // Capturer NavigatorState et ScaffoldMessengerState avant toute opération asynchrone
+    final navigatorState = Navigator.of(context); 
+    final scaffoldMessenger = ScaffoldMessenger.of(context);
+    
     setState(() {
       _isLoading = true;
     });
@@ -172,37 +148,52 @@ class _RegisterPageState extends State<RegisterPage> {
           'dateCreation': FieldValue.serverTimestamp(), // Ajout d'un timestamp de création
         });
         
-// Vérifier si le widget est toujours monté avant d'utiliser le contexte
+        // Vérifier si le widget est toujours monté avant d'utiliser le contexte
         if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Inscription réussie! Données enregistrées dans Firestore'))
-        );
-}
+          // Utiliser scaffoldMessenger au lieu de ScaffoldMessenger.of(context)
+          scaffoldMessenger.showSnackBar(
+            SnackBar(content: Text('Inscription réussie! Bienvenue sur Oasis Paris.'))
+          );
+          
+          // Utiliser navigatorState au lieu de Navigator.of(context)
+          navigatorState.pushAndRemoveUntil(
+            MaterialPageRoute(builder: (context) => NavbarPage()),
+            (route) => false, // Cette condition empêche tout retour arrière
+          );
+        }
       } catch (firestoreError) {
         // Permettre à l'utilisateur de continuer même si l'enregistrement dans Firestore échoue
         print('Erreur Firestore: $firestoreError');
 
-        // Vérifier si le widget est toujours monté avant d'utiliser le contexte
+        // Vérifier si le widget est toujours monté
         if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Inscription réussie, mais une erreur est survenue lors de l\'enregistrement des données supplémentaires.'))
+          // Utiliser scaffoldMessenger au lieu de ScaffoldMessenger.of(context)
+          scaffoldMessenger.showSnackBar(
+            SnackBar(content: Text('Inscription réussie, mais une erreur est survenue lors de l\'enregistrement des données supplémentaires.'))
+          );
+          
+          // Utiliser navigatorState au lieu de Navigator.of(context)
+          navigatorState.pushAndRemoveUntil(
+            MaterialPageRoute(builder: (context) => NavbarPage()),
+            (route) => false,
+          );
+        }
+      }
+    } catch (e) {
+      // Vérifier si le widget est toujours monté
+      if (mounted) {
+        // Utiliser scaffoldMessenger au lieu de ScaffoldMessenger.of(context)
+        scaffoldMessenger.showSnackBar(
+          SnackBar(content: Text('Inscription échouée: ${e.toString()}')),
         );
       }
-}
-    } catch (e) {
-// Vérifier si le widget est toujours monté avant d'utiliser le contexte
-      if (mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Inscription échouée: ${e.toString()}')),
-      );
-}
     } finally {
-// Vérifier si le widget est toujours monté avant de mettre à jour son état
+      // Vérifier si le widget est toujours monté avant de mettre à jour son état
       if (mounted) {
-      setState(() {
-        _isLoading = false;
-      });
-}
+        setState(() {
+          _isLoading = false;
+        });
+      }
     }
   }
 }
