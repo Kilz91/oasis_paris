@@ -59,10 +59,17 @@ class _ManageParticipantsDialogState extends State<ManageParticipantsDialog> {
   
   Future<void> _loadFriends() async {
     try {
-      final friends = await _friendService.loadFriends();
+      final friendModels = await _friendService.loadFriends();
       if (mounted) {
         setState(() {
-          allFriends = friends;
+          // Convertir List<UserModel> en List<Map<String, dynamic>>
+          allFriends = friendModels.map((user) => {
+            'id': user.uid,
+            'prenom': user.firstName,
+            'nom': user.lastName,
+            'email': user.email,
+            'photoURL': user.photoURL,
+          }).toList();
           isLoading = false;
         });
       }

@@ -38,10 +38,17 @@ class _ProgramRdvDialogState extends State<ProgramRdvDialog> {
   
   Future<void> _loadFriends() async {
     try {
-      final friends = await _friendService.loadFriends();
+      final friendModels = await _friendService.loadFriends();
       if (mounted) {
         setState(() {
-          allFriends = friends;
+          // Convertir List<UserModel> en List<Map<String, dynamic>>
+          allFriends = friendModels.map((user) => {
+            'id': user.uid,
+            'prenom': user.firstName,
+            'nom': user.lastName,
+            'email': user.email,
+            'photoURL': user.photoURL,
+          }).toList();
           isLoadingFriends = false;
         });
       }
@@ -278,11 +285,12 @@ class _ProgramRdvDialogState extends State<ProgramRdvDialog> {
       
       // Envoyer une notification à chaque participant
       for (String participantId in selectedParticipants) {
-        await _notificationService.createRdvInvitation(
-          rdvId: docRef.id,
-          recipientId: participantId,
-          rdvName: widget.ilot.nom,
-          rdvDate: dateTime,
+        await _notificationService.createRendezvousInvitationNotification(
+          userId: participantId,
+          senderName: user.displayName ?? 'Utilisateur',
+          rendezvousId: docRef.id,
+          rendezvousName: widget.ilot.nom,
+          rendezvousDate: dateTime,
         );
       }
       

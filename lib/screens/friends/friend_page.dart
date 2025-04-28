@@ -1,9 +1,12 @@
 import 'package:flutter/material.dart';
-
 import 'package:badges/badges.dart' as badges;
 
 // Import des services
 import '../../services/friend_service.dart';
+
+// Import des models
+import '../../models/user_model.dart';
+import '../../models/friend_request_model.dart';
 
 // Import des widgets
 import '../../widgets/friends/friends_list.dart';
@@ -20,7 +23,7 @@ class FriendPage extends StatefulWidget {
 class _FriendPageState extends State<FriendPage> {
   late BuildContext _safeContext;
   bool isLoading = true;
-  List<Map<String, dynamic>> friends = [];
+  List<UserModel> friends = [];
   List<Map<String, dynamic>> friendRequests = []; 
   List<Map<String, dynamic>> sentRequests = [];
   final FriendService _friendService = FriendService();
@@ -43,7 +46,7 @@ class _FriendPageState extends State<FriendPage> {
       final loadedSentRequests = await _friendService.loadSentRequests();
 
       setState(() {
-        friends = loadedFriends;
+        friends = loadedFriends;  // Maintenant c'est un List<UserModel>
         friendRequests = loadedRequests;
         sentRequests = loadedSentRequests;
         isLoading = false;

@@ -1,22 +1,31 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import '../models/friend_request_model.dart';
+import '../models/user_model.dart';
+import '../services/notification_service.dart';
 
 class FriendService {
   // Singleton pattern
   static final FriendService _instance = FriendService._internal();
   factory FriendService() => _instance;
   FriendService._internal();
+  
+  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
+  final FirebaseAuth _auth = FirebaseAuth.instance;
+  final NotificationService _notificationService = NotificationService();
+  
+  String? get currentUserId => _auth.currentUser?.uid;
 
   // Charger la liste des amis depuis Firestore
-  Future<List<Map<String, dynamic>>> loadFriends() async {
-    final user = FirebaseAuth.instance.currentUser;
+  Future<List<UserModel>> loadFriends() async {
+    final user = _auth.currentUser;
     if (user == null) {
       return [];
     }
 
     try {
       // Récupérer la liste des amis de l'utilisateur actuel
-      final userDoc = await FirebaseFirestore.instance
+      final userDoc = await _firestore
           .collection('users')
           .doc(user.uid)
           .get();
@@ -28,24 +37,17 @@ class FriendService {
 
       // Récupérer les IDs des amis
       List<dynamic> friendIds = userDoc.data()!['friends'] ?? [];
-      List<Map<String, dynamic>> friendsList = [];
+      List<UserModel> friendsList = [];
 
       // Récupérer les informations de chaque ami
       for (String friendId in List<String>.from(friendIds)) {
-        final friendDoc = await FirebaseFirestore.instance
+        final friendDoc = await _firestore
             .collection('users')
             .doc(friendId)
             .get();
 
         if (friendDoc.exists) {
-          final friendData = friendDoc.data()!;
-          friendsList.add({
-            'id': friendId,
-            'nom': friendData['nom'] ?? 'Sans nom',
-            'prenom': friendData['prenom'] ?? '',
-            'email': friendData['email'] ?? 'Email non disponible',
-            'photoURL': friendData['photoURL'],
-          });
+          friendsList.add(UserModel.fromMap(friendDoc.data()!, friendId));
         }
       }
 
@@ -58,12 +60,12 @@ class FriendService {
 
   // Charger la liste des demandes d'amis reçues depuis Firestore
   Future<List<Map<String, dynamic>>> loadFriendRequests() async {
-    final user = FirebaseAuth.instance.currentUser;
+    final user = _auth.currentUser;
     if (user == null) return [];
 
     try {
       // Récupérer les demandes d'amis reçues par l'utilisateur actuel
-      final querySnapshot = await FirebaseFirestore.instance
+      final querySnapshot = await _firestore
           .collection('friendRequests')
           .where('receiverId', isEqualTo: user.uid)
           .where('status', isEqualTo: 'pending')
@@ -72,25 +74,19 @@ class FriendService {
       List<Map<String, dynamic>> requests = [];
 
       for (var doc in querySnapshot.docs) {
-        final data = doc.data();
-        final senderId = data['senderId'];
+        final request = FriendRequestModel.fromMap(doc.data(), doc.id);
         
         // Récupérer les informations du demandeur
-        final senderDoc = await FirebaseFirestore.instance
+        final senderDoc = await _firestore
             .collection('users')
-            .doc(senderId)
+            .doc(request.senderId)
             .get();
         
         if (senderDoc.exists) {
           final senderData = senderDoc.data()!;
           requests.add({
-            'requestId': doc.id,
-            'id': senderId,
-            'nom': senderData['nom'] ?? 'Sans nom',
-            'prenom': senderData['prenom'] ?? '',
-            'email': senderData['email'] ?? 'Email non disponible',
-            'photoURL': senderData['photoURL'],
-            'timestamp': data['timestamp'],
+            'request': request,
+            'sender': UserModel.fromMap(senderData, request.senderId),
           });
         }
       }
@@ -104,12 +100,12 @@ class FriendService {
 
   // Charger la liste des demandes d'amis envoyées depuis Firestore
   Future<List<Map<String, dynamic>>> loadSentRequests() async {
-    final user = FirebaseAuth.instance.currentUser;
+    final user = _auth.currentUser;
     if (user == null) return [];
 
     try {
       // Récupérer les demandes d'amis envoyées par l'utilisateur actuel
-      final querySnapshot = await FirebaseFirestore.instance
+      final querySnapshot = await _firestore
           .collection('friendRequests')
           .where('senderId', isEqualTo: user.uid)
           .where('status', isEqualTo: 'pending')
@@ -118,25 +114,19 @@ class FriendService {
       List<Map<String, dynamic>> requests = [];
 
       for (var doc in querySnapshot.docs) {
-        final data = doc.data();
-        final receiverId = data['receiverId'];
+        final request = FriendRequestModel.fromMap(doc.data(), doc.id);
         
         // Récupérer les informations du destinataire
-        final receiverDoc = await FirebaseFirestore.instance
+        final receiverDoc = await _firestore
             .collection('users')
-            .doc(receiverId)
+            .doc(request.receiverId)
             .get();
         
         if (receiverDoc.exists) {
           final receiverData = receiverDoc.data()!;
           requests.add({
-            'requestId': doc.id,
-            'id': receiverId,
-            'nom': receiverData['nom'] ?? 'Sans nom',
-            'prenom': receiverData['prenom'] ?? '',
-            'email': receiverData['email'] ?? 'Email non disponible',
-            'photoURL': receiverData['photoURL'],
-            'timestamp': data['timestamp'],
+            'request': request,
+            'receiver': UserModel.fromMap(receiverData, request.receiverId),
           });
         }
       }
@@ -152,7 +142,7 @@ class FriendService {
   Future<Map<String, dynamic>> searchUser({
     required String searchTerm, 
     required bool isSearchingByEmail,
-    required List<Map<String, dynamic>> currentFriends,
+    required List<UserModel> currentFriends,
   }) async {
     final result = <String, dynamic>{
       'success': false,
@@ -165,8 +155,7 @@ class FriendService {
       return result;
     }
 
-    final user = FirebaseAuth.instance.currentUser;
-    if (user == null) {
+    if (currentUserId == null) {
       result['message'] = 'Utilisateur non connecté';
       return result;
     }
@@ -176,13 +165,13 @@ class FriendService {
       
       if (isSearchingByEmail) {
         // Recherche par email
-        querySnapshot = await FirebaseFirestore.instance
+        querySnapshot = await _firestore
             .collection('users')
             .where('email', isEqualTo: searchTerm)
             .get();
       } else {
         // Recherche par numéro de téléphone
-        querySnapshot = await FirebaseFirestore.instance
+        querySnapshot = await _firestore
             .collection('users')
             .where('telephone', isEqualTo: searchTerm)
             .get();
@@ -194,22 +183,22 @@ class FriendService {
       }
 
       final foundUser = querySnapshot.docs.first;
-      if (foundUser.id == user.uid) {
+      if (foundUser.id == currentUserId) {
         result['message'] = 'Vous ne pouvez pas vous ajouter comme ami';
         return result;
       }
 
       // Vérifier si l'utilisateur est déjà dans la liste d'amis
-      final isAlreadyFriend = currentFriends.any((friend) => friend['id'] == foundUser.id);
+      final isAlreadyFriend = currentFriends.any((friend) => friend.uid == foundUser.id);
       if (isAlreadyFriend) {
         result['message'] = 'Cette personne est déjà dans votre liste d\'amis';
         return result;
       }
 
       // Vérifier si une demande existe déjà
-      final existingRequestQuery = await FirebaseFirestore.instance
+      final existingRequestQuery = await _firestore
           .collection('friendRequests')
-          .where('senderId', isEqualTo: user.uid)
+          .where('senderId', isEqualTo: currentUserId)
           .where('receiverId', isEqualTo: foundUser.id)
           .where('status', isEqualTo: 'pending')
           .get();
@@ -219,10 +208,10 @@ class FriendService {
         return result;
       }
 
-      final reverseRequestQuery = await FirebaseFirestore.instance
+      final reverseRequestQuery = await _firestore
           .collection('friendRequests')
           .where('senderId', isEqualTo: foundUser.id)
-          .where('receiverId', isEqualTo: user.uid)
+          .where('receiverId', isEqualTo: currentUserId)
           .where('status', isEqualTo: 'pending')
           .get();
       
@@ -232,10 +221,7 @@ class FriendService {
       }
 
       result['success'] = true;
-      result['userData'] = {
-        'id': foundUser.id,
-        'data': foundUser.data(),
-      };
+      result['userData'] = UserModel.fromMap(foundUser.data() as Map<String, dynamic>, foundUser.id);
       return result;
     } catch (e) {
       print('Erreur lors de la recherche d\'utilisateur: $e');
@@ -246,16 +232,39 @@ class FriendService {
 
   // Envoyer une demande d'ami
   Future<bool> sendFriendRequest(String receiverId) async {
-    final user = FirebaseAuth.instance.currentUser;
-    if (user == null) return false;
+    if (currentUserId == null) return false;
 
     try {
-      await FirebaseFirestore.instance.collection('friendRequests').add({
-        'senderId': user.uid,
-        'receiverId': receiverId,
-        'status': 'pending',
-        'timestamp': FieldValue.serverTimestamp(),
-      });
+      // Créer la demande d'ami
+      final friendRequest = FriendRequestModel(
+        id: '',  // Sera attribué par Firestore
+        senderId: currentUserId!,
+        receiverId: receiverId,
+        status: FriendRequestStatus.pending,
+      );
+      
+      final docRef = await _firestore
+          .collection('friendRequests')
+          .add(friendRequest.toMap());
+      
+      // Récupérer les informations de l'expéditeur pour la notification
+      final senderDoc = await _firestore
+          .collection('users')
+          .doc(currentUserId)
+          .get();
+      
+      if (senderDoc.exists) {
+        final senderData = senderDoc.data()!;
+        final senderName = '${senderData['prenom']} ${senderData['nom']}';
+        
+        // Envoyer une notification au destinataire
+        await _notificationService.createFriendRequestNotification(
+          userId: receiverId,
+          senderName: senderName,
+          senderId: currentUserId!,
+        );
+      }
+      
       return true;
     } catch (e) {
       print('Erreur lors de l\'envoi de la demande d\'ami: $e');
@@ -265,31 +274,48 @@ class FriendService {
 
   // Accepter une demande d'ami
   Future<bool> acceptFriendRequest(String requestId, String friendId) async {
-    final user = FirebaseAuth.instance.currentUser;
-    if (user == null) return false;
+    if (currentUserId == null) return false;
 
     try {
       // Mettre à jour le statut de la demande d'ami
-      await FirebaseFirestore.instance
+      await _firestore
           .collection('friendRequests')
           .doc(requestId)
           .update({'status': 'accepted'});
 
       // Ajouter l'ami à la liste des amis de l'utilisateur actuel
-      await FirebaseFirestore.instance
+      await _firestore
           .collection('users')
-          .doc(user.uid)
+          .doc(currentUserId)
           .update({
         'friends': FieldValue.arrayUnion([friendId])
       });
 
       // Ajouter l'utilisateur actuel à la liste des amis de l'ami
-      await FirebaseFirestore.instance
+      await _firestore
           .collection('users')
           .doc(friendId)
           .update({
-        'friends': FieldValue.arrayUnion([user.uid])
+        'friends': FieldValue.arrayUnion([currentUserId])
       });
+      
+      // Récupérer les informations de l'utilisateur actuel pour la notification
+      final currentUserDoc = await _firestore
+          .collection('users')
+          .doc(currentUserId)
+          .get();
+      
+      if (currentUserDoc.exists) {
+        final userData = currentUserDoc.data()!;
+        final userName = '${userData['prenom']} ${userData['nom']}';
+        
+        // Envoyer une notification à l'ami
+        await _notificationService.createFriendAcceptedNotification(
+          userId: friendId,
+          friendName: userName,
+          friendId: currentUserId!,
+        );
+      }
 
       return true;
     } catch (e) {
@@ -302,7 +328,7 @@ class FriendService {
   Future<bool> rejectFriendRequest(String requestId) async {
     try {
       // Rejeter la demande d'ami
-      await FirebaseFirestore.instance
+      await _firestore
           .collection('friendRequests')
           .doc(requestId)
           .update({'status': 'rejected'});
@@ -318,7 +344,7 @@ class FriendService {
   Future<bool> cancelFriendRequest(String requestId) async {
     try {
       // Supprimer la demande d'ami
-      await FirebaseFirestore.instance
+      await _firestore
           .collection('friendRequests')
           .doc(requestId)
           .delete();
@@ -332,24 +358,23 @@ class FriendService {
 
   // Supprimer un ami
   Future<bool> removeFriend(String friendId) async {
-    final user = FirebaseAuth.instance.currentUser;
-    if (user == null) return false;
+    if (currentUserId == null) return false;
 
     try {
       // Supprimer l'ami de la liste des amis de l'utilisateur actuel
-      await FirebaseFirestore.instance
+      await _firestore
           .collection('users')
-          .doc(user.uid)
+          .doc(currentUserId)
           .update({
         'friends': FieldValue.arrayRemove([friendId])
       });
 
       // Supprimer l'utilisateur actuel de la liste des amis de l'ami
-      await FirebaseFirestore.instance
+      await _firestore
           .collection('users')
           .doc(friendId)
           .update({
-        'friends': FieldValue.arrayRemove([user.uid])
+        'friends': FieldValue.arrayRemove([currentUserId])
       });
 
       return true;
@@ -357,5 +382,19 @@ class FriendService {
       print('Erreur lors de la suppression d\'un ami: $e');
       return false;
     }
+  }
+  
+  // Obtenir le stream des demandes d'amis en attente
+  Stream<int> pendingFriendRequestsCountStream() {
+    if (currentUserId == null) {
+      return Stream.value(0);
+    }
+    
+    return _firestore
+        .collection('friendRequests')
+        .where('receiverId', isEqualTo: currentUserId)
+        .where('status', isEqualTo: 'pending')
+        .snapshots()
+        .map((snapshot) => snapshot.docs.length);
   }
 }

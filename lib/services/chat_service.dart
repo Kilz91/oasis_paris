@@ -1,5 +1,7 @@
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import '../models/message_model.dart';
+import '../models/conversation_model.dart';
 
 class ChatService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
@@ -43,13 +45,10 @@ class ChatService {
       final otherUserData = otherUserDoc.data() as Map<String, dynamic>;
 
       // Créer la conversation
-      await _firestore.collection('conversations').doc(conversationId).set({
-        'participants': participantIds,
-        'created_at': FieldValue.serverTimestamp(),
-        'updated_at': FieldValue.serverTimestamp(),
-        'last_message': null,
-        'last_message_timestamp': null,
-        'participants_info': {
+      final conversation = ConversationModel(
+        id: conversationId,
+        participants: participantIds,
+        participantsInfo: {
           currentUserId!: {
             'name': '${currentUserData['prenom']} ${currentUserData['nom']}',
             'profile_picture': currentUserData['photoURL'] ?? '',
@@ -59,11 +58,16 @@ class ChatService {
             'profile_picture': otherUserData['photoURL'] ?? '',
           },
         },
-        'read_status': {
+        readStatus: {
           currentUserId!: true,
           otherUserId: true,
         },
-      });
+      );
+      
+      await _firestore
+          .collection('conversations')
+          .doc(conversationId)
+          .set(conversation.toMap());
     }
 
     return conversationId;
@@ -75,24 +79,21 @@ class ChatService {
       throw Exception('Utilisateur non connecté');
     }
 
-    // Créer le document du message
-    final messageData = {
-      'sender_id': currentUserId,
-      'content': content,
-      'timestamp': FieldValue.serverTimestamp(),
-      'read': false,
-    };
-
-    if (imageUrl != null) {
-      messageData['image_url'] = imageUrl;
-    }
+    // Créer le message
+    final message = MessageModel(
+      id: '', // ID sera attribué par Firestore
+      senderId: currentUserId!,
+      content: content,
+      read: false,
+      imageUrl: imageUrl,
+    );
 
     // Ajouter le message à la collection
-    await _firestore
+    final docRef = await _firestore
         .collection('conversations')
         .doc(conversationId)
         .collection('messages')
-        .add(messageData);
+        .add(message.toMap());
 
     // Mettre à jour les informations de la conversation
     await _firestore.collection('conversations').doc(conversationId).update({
@@ -134,7 +135,7 @@ class ChatService {
   }
 
   // Obtenir les conversations de l'utilisateur
-  Stream<QuerySnapshot> getUserConversations() {
+  Stream<List<ConversationModel>> getUserConversations() {
     if (currentUserId == null) {
       throw Exception('Utilisateur non connecté');
     }
@@ -143,17 +144,33 @@ class ChatService {
         .collection('conversations')
         .where('participants', arrayContains: currentUserId)
         .orderBy('updated_at', descending: true)
-        .snapshots();
+        .snapshots()
+        .map((snapshot) {
+          return snapshot.docs.map((doc) {
+            return ConversationModel.fromMap(
+              doc.data(), 
+              doc.id
+            );
+          }).toList();
+        });
   }
 
   // Obtenir les messages d'une conversation
-  Stream<QuerySnapshot> getConversationMessages(String conversationId) {
+  Stream<List<MessageModel>> getConversationMessages(String conversationId) {
     return _firestore
         .collection('conversations')
         .doc(conversationId)
         .collection('messages')
         .orderBy('timestamp', descending: false)
-        .snapshots();
+        .snapshots()
+        .map((snapshot) {
+          return snapshot.docs.map((doc) {
+            return MessageModel.fromMap(
+              doc.data(), 
+              doc.id
+            );
+          }).toList();
+        });
   }
 
   // Supprimer une conversation

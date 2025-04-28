@@ -1,290 +1,226 @@
-import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart';
-
-/// Modèle de notification
-class CustomNotification {
-  final String id;
-  final String type; // 'rdv_invitation', 'participant_request', 'rdv_acceptance'
-  final String message;
-  final DateTime createdAt;
-  final String? rdvId;
-  final bool isRead;
-  final Map<String, dynamic> data;
-  final String recipientId;
-  final String senderId;
-
-  CustomNotification({
-    required this.id,
-    required this.type,
-    required this.message,
-    required this.createdAt,
-    this.rdvId,
-    required this.isRead,
-    required this.data,
-    required this.recipientId,
-    required this.senderId,
-  });
-
-  factory CustomNotification.fromDocument(DocumentSnapshot doc) {
-    final data = doc.data() as Map<String, dynamic>;
-    return CustomNotification(
-      id: doc.id,
-      type: data['type'] ?? '',
-      message: data['message'] ?? '',
-      createdAt: (data['createdAt'] as Timestamp).toDate(),
-      rdvId: data['rdvId'],
-      isRead: data['isRead'] ?? false,
-      data: data['data'] ?? {},
-      recipientId: data['recipientId'] ?? '',
-      senderId: data['senderId'] ?? '',
-    );
-  }
-}
+import 'package:firebase_auth/firebase_auth.dart';
+import '../models/notification_model.dart';
 
 class NotificationService {
   final FirebaseFirestore _firestore = FirebaseFirestore.instance;
   final FirebaseAuth _auth = FirebaseAuth.instance;
-
-  // Référence à la collection de notifications
-  CollectionReference get _notificationsRef => _firestore.collection('notifications');
-
-  // Récupérer toutes les notifications pour l'utilisateur actuel
-  Stream<List<CustomNotification>> getAllNotifications() {
-    final userId = _auth.currentUser?.uid;
-    if (userId == null) return Stream.value([]);
-
-    return _notificationsRef
-        .where('recipientId', isEqualTo: userId)
-        .orderBy('createdAt', descending: true)
-        .snapshots()
-        .map((snapshot) {
-      return snapshot.docs
-          .map((doc) => CustomNotification.fromDocument(doc))
-          .toList();
-    });
+  
+  // Obtenir l'ID de l'utilisateur actuel
+  String? get currentUserId => _auth.currentUser?.uid;
+  
+  // Créer une nouvelle notification
+  Future<String?> createNotification({
+    required String userId,
+    required String title,
+    required String message,
+    required NotificationType type,
+    Map<String, dynamic>? data,
+  }) async {
+    try {
+      final notification = NotificationModel(
+        id: '', // Sera attribué par Firestore
+        userId: userId,
+        title: title,
+        message: message,
+        type: type,
+        isRead: false,
+        data: data,
+      );
+      
+      final docRef = await _firestore
+          .collection('notifications')
+          .add(notification.toMap());
+      
+      return docRef.id;
+    } catch (e) {
+      print('Erreur lors de la création de la notification : $e');
+      return null;
+    }
   }
-
-  // Récupérer uniquement les notifications non lues
-  Stream<List<CustomNotification>> getUnreadNotifications() {
-    final userId = _auth.currentUser?.uid;
-    if (userId == null) return Stream.value([]);
-
-    return _notificationsRef
-        .where('recipientId', isEqualTo: userId)
-        .where('isRead', isEqualTo: false)
-        .orderBy('createdAt', descending: true)
-        .snapshots()
-        .map((snapshot) {
-      return snapshot.docs
-          .map((doc) => CustomNotification.fromDocument(doc))
-          .toList();
-    });
-  }
-
+  
   // Marquer une notification comme lue
   Future<void> markAsRead(String notificationId) async {
-    await _notificationsRef.doc(notificationId).update({
-      'isRead': true,
-    });
-  }
-
-  // Marquer toutes les notifications comme lues
-  Future<void> markAllAsRead() async {
-    final userId = _auth.currentUser?.uid;
-    if (userId == null) return;
-
-    final unreadNotifications = await _notificationsRef
-        .where('recipientId', isEqualTo: userId)
-        .where('isRead', isEqualTo: false)
-        .get();
-
-    final batch = _firestore.batch();
-    for (var doc in unreadNotifications.docs) {
-      batch.update(doc.reference, {'isRead': true});
+    try {
+      await _firestore
+          .collection('notifications')
+          .doc(notificationId)
+          .update({'isRead': true});
+    } catch (e) {
+      print('Erreur lors du marquage de la notification comme lue : $e');
     }
-    await batch.commit();
   }
-
-  // Créer une invitation à un rendez-vous
-  Future<void> createRdvInvitation({
-    required String rdvId,
-    required String recipientId,
-    required String rdvName,
-    required DateTime rdvDate,
-  }) async {
-    final sender = _auth.currentUser;
-    if (sender == null) return;
-
-    // Récupérer les informations de l'expéditeur
-    final senderDoc = await _firestore.collection('users').doc(sender.uid).get();
-    final senderData = senderDoc.data() as Map<String, dynamic>?;
-    final senderName = '${senderData?['prenom'] ?? ''} ${senderData?['nom'] ?? ''}';
-
-    // Créer la notification
-    await _notificationsRef.add({
-      'type': 'rdv_invitation',
-      'message': '$senderName vous invite à un rendez-vous à $rdvName le ${_formatDate(rdvDate)}',
-      'createdAt': FieldValue.serverTimestamp(),
-      'rdvId': rdvId,
-      'isRead': false,
-      'recipientId': recipientId,
-      'senderId': sender.uid,
-      'data': {
-        'rdvName': rdvName,
-        'rdvDate': Timestamp.fromDate(rdvDate),
-        'senderName': senderName,
+  
+  // Marquer toutes les notifications d'un utilisateur comme lues
+  Future<void> markAllAsRead() async {
+    if (currentUserId == null) return;
+    
+    try {
+      final batch = _firestore.batch();
+      final notifications = await _firestore
+          .collection('notifications')
+          .where('userId', isEqualTo: currentUserId)
+          .where('isRead', isEqualTo: false)
+          .get();
+      
+      for (final doc in notifications.docs) {
+        batch.update(doc.reference, {'isRead': true});
       }
-    });
+      
+      await batch.commit();
+    } catch (e) {
+      print('Erreur lors du marquage de toutes les notifications comme lues : $e');
+    }
   }
-
-  // Créer une demande d'ajout de participant
-  Future<void> createParticipantRequest({
+  
+  // Supprimer une notification
+  Future<void> deleteNotification(String notificationId) async {
+    try {
+      await _firestore
+          .collection('notifications')
+          .doc(notificationId)
+          .delete();
+    } catch (e) {
+      print('Erreur lors de la suppression de la notification : $e');
+    }
+  }
+  
+  // Supprimer toutes les notifications d'un utilisateur
+  Future<void> deleteAllNotifications() async {
+    if (currentUserId == null) return;
+    
+    try {
+      final batch = _firestore.batch();
+      final notifications = await _firestore
+          .collection('notifications')
+          .where('userId', isEqualTo: currentUserId)
+          .get();
+      
+      for (final doc in notifications.docs) {
+        batch.delete(doc.reference);
+      }
+      
+      await batch.commit();
+    } catch (e) {
+      print('Erreur lors de la suppression de toutes les notifications : $e');
+    }
+  }
+  
+  // Obtenir toutes les notifications d'un utilisateur
+  Stream<List<NotificationModel>> getUserNotifications() {
+    if (currentUserId == null) {
+      return Stream.value([]);
+    }
+    
+    return _firestore
+        .collection('notifications')
+        .where('userId', isEqualTo: currentUserId)
+        .orderBy('createdAt', descending: true)
+        .snapshots()
+        .map((snapshot) {
+          return snapshot.docs.map((doc) {
+            return NotificationModel.fromMap(doc.data(), doc.id);
+          }).toList();
+        });
+  }
+  
+  // Obtenir le nombre de notifications non lues
+  Stream<int> getUnreadNotificationsCount() {
+    if (currentUserId == null) {
+      return Stream.value(0);
+    }
+    
+    return _firestore
+        .collection('notifications')
+        .where('userId', isEqualTo: currentUserId)
+        .where('isRead', isEqualTo: false)
+        .snapshots()
+        .map((snapshot) => snapshot.docs.length);
+  }
+  
+  // Créer une notification pour une demande d'ami
+  Future<String?> createFriendRequestNotification({
+    required String userId,
+    required String senderName,
+    required String senderId,
+  }) {
+    return createNotification(
+      userId: userId,
+      title: 'Nouvelle demande d\'ami',
+      message: '$senderName vous a envoyé une demande d\'ami',
+      type: NotificationType.friendRequest,
+      data: {'senderId': senderId},
+    );
+  }
+  
+  // Créer une notification pour une acceptation d'ami
+  Future<String?> createFriendAcceptedNotification({
+    required String userId,
+    required String friendName,
+    required String friendId,
+  }) {
+    return createNotification(
+      userId: userId,
+      title: 'Demande d\'ami acceptée',
+      message: '$friendName a accepté votre demande d\'ami',
+      type: NotificationType.friendAccepted,
+      data: {'friendId': friendId},
+    );
+  }
+  
+  // Créer une notification pour une invitation à un rendez-vous
+  Future<String?> createRendezvousInvitationNotification({
+    required String userId,
+    required String senderName,
+    required String rendezvousId,
+    required String rendezvousName,
+    required DateTime rendezvousDate,
+  }) {
+    return createNotification(
+      userId: userId,
+      title: 'Nouvelle invitation',
+      message: '$senderName vous a invité à "$rendezvousName"',
+      type: NotificationType.rendezvousInvitation,
+      data: {
+        'rendezvousId': rendezvousId,
+        'rendezvousDate': Timestamp.fromDate(rendezvousDate),
+      },
+    );
+  }
+  
+  // Créer une notification pour une acceptation de rendez-vous
+  Future<String?> createRdvAcceptanceNotification({
+    required String rdvId,
+    required String rdvName,
+    required String organizerId,
+  }) {
+    return createNotification(
+      userId: organizerId,
+      title: 'Rendez-vous accepté',
+      message: 'Quelqu\'un a accepté votre invitation à "$rdvName"',
+      type: NotificationType.rendezvousAccepted,
+      data: {'rendezvousId': rdvId},
+    );
+  }
+  
+  // Créer une notification pour une proposition de participant
+  Future<String?> createParticipantRequest({
     required String rdvId,
     required String rdvName,
     required String organizerId,
     required String newParticipantId,
     required String newParticipantName,
-  }) async {
-    final sender = _auth.currentUser;
-    if (sender == null) return;
-
-    // Récupérer les informations de l'expéditeur
-    final senderDoc = await _firestore.collection('users').doc(sender.uid).get();
-    final senderData = senderDoc.data() as Map<String, dynamic>?;
-    final senderName = '${senderData?['prenom'] ?? ''} ${senderData?['nom'] ?? ''}';
-
-    // Créer la notification
-    await _notificationsRef.add({
-      'type': 'participant_request',
-      'message': '$senderName propose d\'inviter $newParticipantName à votre rendez-vous à $rdvName',
-      'createdAt': FieldValue.serverTimestamp(),
-      'rdvId': rdvId,
-      'isRead': false,
-      'recipientId': organizerId,
-      'senderId': sender.uid,
-      'data': {
-        'rdvName': rdvName,
+  }) {
+    return createNotification(
+      userId: organizerId,
+      title: 'Proposition de participant',
+      message: '$newParticipantName a été proposé comme participant pour "$rdvName"',
+      type: NotificationType.participantRequest,
+      data: {
+        'rendezvousId': rdvId,
         'newParticipantId': newParticipantId,
         'newParticipantName': newParticipantName,
-        'senderName': senderName,
-      }
-    });
-  }
-  
-  // Créer une notification d'acceptation de rendez-vous
-  Future<void> createRdvAcceptanceNotification({
-    required String rdvId,
-    required String rdvName,
-    required String organizerId,
-  }) async {
-    final sender = _auth.currentUser;
-    if (sender == null) return;
-
-    // Récupérer les informations de l'expéditeur (celui qui accepte)
-    final senderDoc = await _firestore.collection('users').doc(sender.uid).get();
-    final senderData = senderDoc.data() as Map<String, dynamic>?;
-    final senderName = '${senderData?['prenom'] ?? ''} ${senderData?['nom'] ?? ''}';
-
-    // Créer la notification
-    await _notificationsRef.add({
-      'type': 'rdv_acceptance',
-      'message': '$senderName a accepté votre invitation au rendez-vous à $rdvName',
-      'createdAt': FieldValue.serverTimestamp(),
-      'rdvId': rdvId,
-      'isRead': false,
-      'recipientId': organizerId,
-      'senderId': sender.uid,
-      'data': {
-        'rdvName': rdvName,
-        'acceptedBy': senderName,
-      }
-    });
-  }
-
-  // Répondre à une invitation à un rendez-vous
-  Future<void> respondToRdvInvitation({
-    required String notificationId,
-    required String rdvId,
-    required bool accepted,
-  }) async {
-    final user = _auth.currentUser;
-    if (user == null) return;
-
-    // Marquer la notification comme lue
-    await markAsRead(notificationId);
-
-    // Si la réponse est positive, ajouter l'utilisateur aux participants du rendez-vous
-    if (accepted) {
-      final rdvRef = _firestore.collection('rendezvous').doc(rdvId);
-      final rdvDoc = await rdvRef.get();
-      
-      if (rdvDoc.exists) {
-        final rdvData = rdvDoc.data() as Map<String, dynamic>;
-        final organizerId = rdvData['userId'] as String;
-        final rdvName = rdvData['ilotNom'] as String;
-        
-        // Mettre à jour le document du rendez-vous pour ajouter l'utilisateur aux participants acceptés
-        await rdvRef.update({
-          'acceptedParticipants': FieldValue.arrayUnion([user.uid])
-        });
-        
-        // Créer une notification pour informer l'organisateur que l'invitation a été acceptée
-        await createRdvAcceptanceNotification(
-          rdvId: rdvId,
-          rdvName: rdvName,
-          organizerId: organizerId,
-        );
-      }
-    }
-    
-    // Si la réponse est négative, on peut éventuellement ajouter l'utilisateur à une liste de refus
-    // Mais ce n'est pas implémenté pour le moment
-  }
-
-  // Répondre à une demande d'ajout de participant
-  Future<void> respondToParticipantRequest({
-    required String notificationId,
-    required String rdvId,
-    required String newParticipantId,
-    required bool approved,
-  }) async {
-    // Marquer la notification comme lue
-    await markAsRead(notificationId);
-
-    // Si la demande est approuvée, inviter le nouveau participant
-    if (approved) {
-      final rdvRef = _firestore.collection('rendezvous').doc(rdvId);
-      final rdvDoc = await rdvRef.get();
-      
-      if (rdvDoc.exists) {
-        final rdvData = rdvDoc.data() as Map<String, dynamic>;
-        final rdvName = rdvData['ilotNom'] as String;
-        final rdvDate = (rdvData['date'] as Timestamp).toDate();
-        
-        // Mettre à jour le document du rendez-vous pour ajouter l'utilisateur aux participants invités
-        await rdvRef.update({
-          'participants': FieldValue.arrayUnion([newParticipantId])
-        });
-        
-        // Créer une invitation pour le nouveau participant
-        await createRdvInvitation(
-          rdvId: rdvId,
-          recipientId: newParticipantId,
-          rdvName: rdvName,
-          rdvDate: rdvDate,
-        );
-      }
-    }
-  }
-  
-  // Formater une date pour l'affichage dans un message
-  String _formatDate(DateTime date) {
-    final day = date.day.toString().padLeft(2, '0');
-    final month = date.month.toString().padLeft(2, '0');
-    final year = date.year.toString();
-    final hours = date.hour.toString().padLeft(2, '0');
-    final minutes = date.minute.toString().padLeft(2, '0');
-    
-    return '$day/$month/$year à $hours:$minutes';
+      },
+    );
   }
 }

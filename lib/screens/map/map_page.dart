@@ -7,8 +7,10 @@ import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:intl/intl.dart';
 import '../../models/ilot_model.dart';
+import '../../models/user_model.dart';  // Ajout de l'import nécessaire
 import '../../services/friend_service.dart';
 import '../../services/notification_service.dart';
+import '../../services/rdv_service.dart'; // Ajout de l'import pour RdvService
 
 // Classe permettant de naviguer vers la carte avec un îlot présélectionné
 class MapPageWithSelectedIlot extends StatefulWidget {
@@ -224,6 +226,17 @@ class _MapPageWithSelectedIlotState extends State<MapPageWithSelectedIlot> {
     );
   }
 
+  // Fonction pour convertir UserModel en Map<String, dynamic>
+  Map<String, dynamic> _userModelToMap(UserModel user) {
+    return {
+      'id': user.uid,
+      'nom': user.lastName,
+      'prenom': user.firstName,
+      'email': user.email,
+      'photoURL': user.photoURL,
+    };
+  }
+
   // Popup pour programmer un rendez-vous
   void _showProgramRdvDialog(Ilot ilot) {
     final dateController = TextEditingController();
@@ -243,10 +256,11 @@ class _MapPageWithSelectedIlotState extends State<MapPageWithSelectedIlot> {
             
             // Charger la liste des amis si ce n'est pas déjà fait
             if (isLoadingFriends) {
-              _friendService.loadFriends().then((friends) {
+              _friendService.loadFriends().then((friendModels) {
                 if (mounted) {
                   setState(() {
-                    allFriends = friends;
+                    // Convertir List<UserModel> en List<Map<String, dynamic>>
+                    allFriends = friendModels.map((user) => _userModelToMap(user)).toList();
                     isLoadingFriends = false;
                   });
                 }
@@ -469,11 +483,12 @@ class _MapPageWithSelectedIlotState extends State<MapPageWithSelectedIlot> {
                       
                       // Envoyer une notification à chaque participant
                       for (String participantId in selectedParticipants) {
-                        await _notificationService.createRdvInvitation(
-                          rdvId: docRef.id,
-                          recipientId: participantId,
-                          rdvName: ilot.nom,
-                          rdvDate: dateTime,
+                        await _notificationService.createRendezvousInvitationNotification(
+                          userId: participantId,
+                          senderName: user.displayName ?? 'Utilisateur',
+                          rendezvousId: docRef.id,
+                          rendezvousName: ilot.nom,
+                          rendezvousDate: dateTime,
                         );
                       }
                       
@@ -599,6 +614,16 @@ class MapPage extends StatefulWidget {
 }
 
 class _MapPageState extends State<MapPage> {
+  // Converts a UserModel to a Map<String, dynamic>
+  Map<String, dynamic> _userModelToMap(UserModel user) {
+    return {
+      'id': user.uid,
+      'nom': user.lastName,
+      'prenom': user.firstName,
+      'email': user.email,
+      'photoURL': user.photoURL,
+    };
+  }
   final Completer<GoogleMapController> _controller = Completer();
   final FriendService _friendService = FriendService();
   final NotificationService _notificationService = NotificationService();
@@ -848,10 +873,11 @@ class _MapPageState extends State<MapPage> {
             
             // Charger la liste des amis si ce n'est pas déjà fait
             if (isLoadingFriends) {
-              _friendService.loadFriends().then((friends) {
+              _friendService.loadFriends().then((friendModels) {
                 if (mounted) {
                   setState(() {
-                    allFriends = friends;
+                    // Convertir List<UserModel> en List<Map<String, dynamic>>
+                    allFriends = friendModels.map((user) => _userModelToMap(user)).toList();
                     isLoadingFriends = false;
                   });
                 }
@@ -1074,11 +1100,12 @@ class _MapPageState extends State<MapPage> {
                       
                       // Envoyer une notification à chaque participant
                       for (String participantId in selectedParticipants) {
-                        await _notificationService.createRdvInvitation(
-                          rdvId: docRef.id,
-                          recipientId: participantId,
-                          rdvName: ilot.nom,
-                          rdvDate: dateTime,
+                        await _notificationService.createRendezvousInvitationNotification(
+                          userId: participantId,
+                          senderName: user.displayName ?? 'Utilisateur',
+                          rendezvousId: docRef.id,
+                          rendezvousName: ilot.nom,
+                          rendezvousDate: dateTime,
                         );
                       }
                       
@@ -1203,8 +1230,21 @@ class MesRendezVousPage extends StatefulWidget {
 
 class _MesRendezVousPageState extends State<MesRendezVousPage>
     with SingleTickerProviderStateMixin {
+  // Converts a UserModel to a Map<String, dynamic>
+  Map<String, dynamic> _userModelToMap(UserModel user) {
+    return {
+      'id': user.uid,
+      'nom': user.lastName,
+      'prenom': user.firstName,
+      'email': user.email,
+      'photoURL': user.photoURL,
+    };
+  }
+  final RdvService _rdvService = RdvService();
   final FriendService _friendService = FriendService();
   final NotificationService _notificationService = NotificationService();
+  List<Map<String, dynamic>> allFriends = [];
+  bool isLoadingFriends = true;
   late TabController _tabController;
 
   @override
@@ -1677,8 +1717,11 @@ class _MesRendezVousPageState extends State<MesRendezVousPage>
             
             // Charger la liste des amis
             if (isLoading) {
-              _friendService.loadFriends().then((friends) {
+              _friendService.loadFriends().then((friendModels) {
                 setState(() {
+                  // Convertir List<UserModel> en List<Map<String, dynamic>>
+                  List<Map<String, dynamic>> friends = friendModels.map((user) => _userModelToMap(user)).toList();
+                  
                   // Filtrer pour exclure les participants déjà invités
                   final List<dynamic> currentParticipants = rdvData['participants'] ?? [];
                   allFriends = friends.where((friend) => 
@@ -1844,9 +1887,10 @@ class _MesRendezVousPageState extends State<MesRendezVousPage>
         return StatefulBuilder(
           builder: (context, setState) {
             if (isLoading) {
-              _friendService.loadFriends().then((friends) {
+              _friendService.loadFriends().then((friendModels) {
                 setState(() {
-                  allFriends = friends;
+                  // Convertir List<UserModel> en List<Map<String, dynamic>>
+                  allFriends = friendModels.map((user) => _userModelToMap(user)).toList();
                   isLoading = false;
                 });
               }).catchError((error) {

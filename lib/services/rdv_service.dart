@@ -44,11 +44,12 @@ class RdvService {
 
       // Envoyer une notification à chaque participant
       for (String participantId in participants) {
-        await _notificationService.createRdvInvitation(
-          rdvId: docRef.id,
-          recipientId: participantId,
-          rdvName: ilotNom,
-          rdvDate: date,
+        await _notificationService.createRendezvousInvitationNotification(
+          userId: participantId,
+          senderName: user.displayName ?? 'Utilisateur',
+          rendezvousId: docRef.id,
+          rendezvousName: ilotNom,
+          rendezvousDate: date,
         );
       }
 
@@ -193,11 +194,12 @@ class RdvService {
       
       // Envoyer des notifications aux nouveaux participants
       for (String participantId in newParticipants) {
-        await _notificationService.createRdvInvitation(
-          rdvId: rdvId,
-          recipientId: participantId,
-          rdvName: rdvData['ilotNom'],
-          rdvDate: (date ?? rdvData['date'].toDate()),
+        await _notificationService.createRendezvousInvitationNotification(
+          userId: participantId,
+          senderName: rdvData['organizerName'] ?? 'Utilisateur',
+          rendezvousId: rdvId,
+          rendezvousName: rdvData['ilotNom'],
+          rendezvousDate: (date ?? rdvData['date'].toDate()),
         );
       }
     }
