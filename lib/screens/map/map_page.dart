@@ -6,43 +6,53 @@ import 'dart:convert';
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:intl/intl.dart';
-import 'ilot_model.dart';
-import 'services/friend_service.dart';
-import 'services/notification_service.dart';
+import '../../models/ilot_model.dart';
+import '../../services/friend_service.dart';
+import '../../services/notification_service.dart';
 
-class MapPage extends StatefulWidget {
-  const MapPage({Key? key}) : super(key: key);
+// Classe permettant de naviguer vers la carte avec un îlot présélectionné
+class MapPageWithSelectedIlot extends StatefulWidget {
+  final Ilot selectedIlot;
+
+  const MapPageWithSelectedIlot({
+    Key? key, 
+    required this.selectedIlot,
+  }) : super(key: key);
 
   @override
-  State<MapPage> createState() => _MapPageState();
+  State<MapPageWithSelectedIlot> createState() => _MapPageWithSelectedIlotState();
 }
 
-class _MapPageState extends State<MapPage> {
+class _MapPageWithSelectedIlotState extends State<MapPageWithSelectedIlot> {
   final Completer<GoogleMapController> _controller = Completer();
   final FriendService _friendService = FriendService();
   final NotificationService _notificationService = NotificationService();
   
-  // Position centrée sur Paris
-  static const CameraPosition _initialPosition = CameraPosition(
-    target: LatLng(48.856614, 2.3522219),
-    zoom: 12.0,
-  );
+  // Position qui sera centrée sur l'îlot sélectionné
+  late CameraPosition _initialPosition;
   
   Set<Marker> _markers = {};
   Map<String, Ilot> _ilotsMap = {};
   bool _isLoading = true;
   String _error = '';
   late BitmapDescriptor _markerIcon;
+  late BitmapDescriptor _selectedMarkerIcon;
 
   @override
   void initState() {
     super.initState();
-    _setCustomMarkerIcon();
+    // Initialiser la position de la caméra avec l'îlot sélectionné
+    _initialPosition = CameraPosition(
+      target: LatLng(widget.selectedIlot.latitude, widget.selectedIlot.longitude),
+      zoom: 15.0, // Zoom plus proche pour bien voir l'îlot sélectionné
+    );
+    _setCustomMarkerIcons();
     _fetchIlots();
   }
   
-  Future<void> _setCustomMarkerIcon() async {
+  Future<void> _setCustomMarkerIcons() async {
     _markerIcon = await BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueGreen);
+    _selectedMarkerIcon = await BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueAzure);
   }
 
   Future<void> _fetchIlots() async {
@@ -57,16 +67,27 @@ class _MapPageState extends State<MapPage> {
         }
       }
       
-      setState(() {
-        _ilotsMap = ilotsMap;
-        _markers = _createMarkers(ilots);
-        _isLoading = false;
-      });
+      // Vérifier que le widget est toujours monté avant d'appeler setState
+      if (mounted) {
+        setState(() {
+          _ilotsMap = ilotsMap;
+          _markers = _createMarkers(ilots);
+          _isLoading = false;
+        });
+        
+        // Sélectionner l'îlot passé en paramètre immédiatement
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          _showIlotDetails(widget.selectedIlot);
+        });
+      }
     } catch (e) {
-      setState(() {
-        _error = 'Erreur lors du chargement des données: $e';
-        _isLoading = false;
-      });
+      // Vérifier que le widget est toujours monté avant d'appeler setState
+      if (mounted) {
+        setState(() {
+          _error = 'Erreur lors du chargement des données: $e';
+          _isLoading = false;
+        });
+      }
     }
   }
 
@@ -74,6 +95,9 @@ class _MapPageState extends State<MapPage> {
     return ilots.map((ilot) {
       // Ne créez un marqueur que si les coordonnées sont valides
       if (ilot.latitude != 0.0 && ilot.longitude != 0.0) {
+        // Utiliser une icône différente pour l'îlot sélectionné
+        final isSelected = ilot.nom == widget.selectedIlot.nom;
+        
         return Marker(
           markerId: MarkerId(ilot.nom),
           position: LatLng(ilot.latitude, ilot.longitude),
@@ -81,10 +105,12 @@ class _MapPageState extends State<MapPage> {
             title: ilot.nom,
             snippet: ilot.adresse.isNotEmpty ? ilot.adresse : 'Îlot de fraîcheur',
           ),
-          icon: _markerIcon,
+          icon: isSelected ? _selectedMarkerIcon : _markerIcon,
           onTap: () {
             _showIlotDetails(ilot);
           },
+          // Animer si c'est l'îlot sélectionné
+          zIndex: isSelected ? 2 : 1,
         );
       }
       return null;
@@ -117,6 +143,52 @@ class _MapPageState extends State<MapPage> {
               ),
             ),
             SizedBox(height: 12),
+            
+            // Affichage du type d'îlot
+            if (ilot.type.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 8.0),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Icon(Icons.category, color: Colors.teal),
+                    SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        "Type: ${ilot.type}",
+                        style: TextStyle(fontSize: 16),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              
+            // Affichage des heures d'ouverture ou ouverture nocturne
+            if (ilot.heuresOuverture.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 8.0),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Icon(
+                      ilot.heuresOuverture == 'Ouvert la nuit' 
+                        ? Icons.nightlight_round 
+                        : Icons.access_time,
+                      color: Colors.teal
+                    ),
+                    SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        ilot.heuresOuverture == 'Ouvert la nuit'
+                            ? "Ouvert la nuit"
+                            : "Horaires: ${ilot.heuresOuverture}",
+                        style: TextStyle(fontSize: 16),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            
             if (ilot.adresse.isNotEmpty)
               Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -519,7 +591,611 @@ class _MapPageState extends State<MapPage> {
   }
 }
 
-// Page pour afficher les rendez-vous de l'utilisateur
+class MapPage extends StatefulWidget {
+  const MapPage({Key? key}) : super(key: key);
+
+  @override
+  State<MapPage> createState() => _MapPageState();
+}
+
+class _MapPageState extends State<MapPage> {
+  final Completer<GoogleMapController> _controller = Completer();
+  final FriendService _friendService = FriendService();
+  final NotificationService _notificationService = NotificationService();
+  
+  // Position centrée sur Paris
+  static const CameraPosition _initialPosition = CameraPosition(
+    target: LatLng(48.856614, 2.3522219),
+    zoom: 12.0,
+  );
+  
+  Set<Marker> _markers = {};
+  Map<String, Ilot> _ilotsMap = {};
+  bool _isLoading = true;
+  String _error = '';
+  Map<String, BitmapDescriptor> _markerIcons = {};
+  final Map<String, Color> _typeColors = {
+    'jardin': Colors.green,
+    'parc': Colors.teal,
+    'square': Colors.lightGreen,
+    'cimetière': Colors.blueGrey,
+    'bois': Colors.brown,
+    'eau': Colors.blue,
+    'fontaine': Colors.lightBlue,
+    'espace': Colors.teal,
+    'promenade': Colors.lime,
+    'terrain': Colors.amber,
+  };
+  BitmapDescriptor _defaultMarkerIcon = BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueGreen);
+
+  @override
+  void initState() {
+    super.initState();
+    _setCustomMarkerIcons();
+    _fetchIlots();
+  }
+  
+  Future<void> _setCustomMarkerIcons() async {
+    // Créer des icônes différentes pour chaque type d'îlot
+    _defaultMarkerIcon = await BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueGreen);
+    
+    // Définir des couleurs pour les types d'îlots courants
+    _markerIcons['jardin'] = await BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueGreen);
+    _markerIcons['parc'] = await BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueAzure);
+    _markerIcons['square'] = await BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueViolet);
+    _markerIcons['cimetière'] = await BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueBlue);
+    _markerIcons['bois'] = await BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueOrange);
+    _markerIcons['fontaine'] = await BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueCyan);
+    _markerIcons['promenade'] = await BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueYellow);
+    _markerIcons['inconnu'] = await BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueRose);
+  }
+  
+  // Fonction pour obtenir l'icône correspondant à un type d'îlot
+  BitmapDescriptor _getMarkerIcon(String type) {
+    if (type.isEmpty) {
+      return _defaultMarkerIcon;
+    }
+    
+    // Déterminer le type principal de l'îlot à partir de son nom
+    String typeKey = 'inconnu';
+    type = type.toLowerCase();
+    
+    for (String key in _markerIcons.keys) {
+      if (type.contains(key)) {
+        typeKey = key;
+        break;
+      }
+    }
+    
+    return _markerIcons[typeKey] ?? _defaultMarkerIcon;
+  }
+
+  Future<void> _fetchIlots() async {
+    try {
+      final ilots = await fetchIlots();
+      
+      // Créer une map d'îlots pour retrouver facilement les infos par ID
+      final ilotsMap = <String, Ilot>{};
+      for (var ilot in ilots) {
+        if (ilot.latitude != 0.0 && ilot.longitude != 0.0) {
+          ilotsMap[ilot.nom] = ilot;
+        }
+      }
+      
+      // Vérifier que le widget est toujours monté avant d'appeler setState
+      if (mounted) {
+        setState(() {
+          _ilotsMap = ilotsMap;
+          _markers = _createMarkers(ilots);
+          _isLoading = false;
+        });
+      }
+    } catch (e) {
+      // Vérifier que le widget est toujours monté avant d'appeler setState
+      if (mounted) {
+        setState(() {
+          _error = 'Erreur lors du chargement des données: $e';
+          _isLoading = false;
+        });
+      }
+    }
+  }
+
+  Set<Marker> _createMarkers(List<Ilot> ilots) {
+    return ilots.map((ilot) {
+      // Ne créez un marqueur que si les coordonnées sont valides
+      if (ilot.latitude != 0.0 && ilot.longitude != 0.0) {
+        return Marker(
+          markerId: MarkerId(ilot.nom),
+          position: LatLng(ilot.latitude, ilot.longitude),
+          infoWindow: InfoWindow(
+            title: ilot.nom,
+            snippet: ilot.adresse.isNotEmpty ? ilot.adresse : 'Îlot de fraîcheur',
+          ),
+          icon: _getMarkerIcon(ilot.type),
+          onTap: () {
+            _showIlotDetails(ilot);
+          },
+        );
+      }
+      return null;
+    })
+    .whereType<Marker>()  // Filtrer les nulls
+    .toSet();
+  }
+
+  // Afficher les détails de l'îlot et proposer de programmer un rendez-vous
+  void _showIlotDetails(Ilot ilot) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.white,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+      ),
+      builder: (context) => Padding(
+        padding: const EdgeInsets.all(16.0),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              ilot.nom,
+              style: TextStyle(
+                fontSize: 22,
+                fontWeight: FontWeight.bold,
+                color: Colors.teal,
+              ),
+            ),
+            SizedBox(height: 12),
+            
+            // Affichage du type d'îlot
+            if (ilot.type.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 8.0),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Icon(Icons.category, color: Colors.teal),
+                    SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        "Type: ${ilot.type}",
+                        style: TextStyle(fontSize: 16),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              
+            // Affichage des heures d'ouverture ou ouverture nocturne
+            if (ilot.heuresOuverture.isNotEmpty)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 8.0),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Icon(
+                      ilot.heuresOuverture == 'Ouvert la nuit' 
+                        ? Icons.nightlight_round 
+                        : Icons.access_time,
+                      color: Colors.teal
+                    ),
+                    SizedBox(width: 8),
+                    Expanded(
+                      child: Text(
+                        ilot.heuresOuverture == 'Ouvert la nuit'
+                            ? "Ouvert la nuit"
+                            : "Horaires: ${ilot.heuresOuverture}",
+                        style: TextStyle(fontSize: 16),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            
+            if (ilot.adresse.isNotEmpty)
+              Row(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Icon(Icons.location_on, color: Colors.teal),
+                  SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      ilot.adresse,
+                      style: TextStyle(fontSize: 16),
+                    ),
+                  ),
+                ],
+              ),
+            SizedBox(height: 24),
+            Center(
+              child: ElevatedButton.icon(
+                icon: Icon(Icons.calendar_today),
+                label: Text('Programmer un rendez-vous'),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.teal,
+                  padding: EdgeInsets.symmetric(horizontal: 20, vertical: 12),
+                ),
+                onPressed: () {
+                  Navigator.pop(context);
+                  _showProgramRdvDialog(ilot);
+                },
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  // Popup pour programmer un rendez-vous
+  void _showProgramRdvDialog(Ilot ilot) {
+    final dateController = TextEditingController();
+    final timeController = TextEditingController();
+    DateTime selectedDate = DateTime.now();
+    TimeOfDay selectedTime = TimeOfDay.now();
+    List<String> selectedParticipants = [];
+    List<Map<String, dynamic>> allFriends = [];
+    bool isLoadingFriends = true;
+    
+    // Utiliser un StatefulBuilder pour gérer correctement l'état dans le dialog
+    showDialog(
+      context: context,
+      builder: (context) {
+        return StatefulBuilder(
+          builder: (context, setState) {
+            
+            // Charger la liste des amis si ce n'est pas déjà fait
+            if (isLoadingFriends) {
+              _friendService.loadFriends().then((friends) {
+                if (mounted) {
+                  setState(() {
+                    allFriends = friends;
+                    isLoadingFriends = false;
+                  });
+                }
+              }).catchError((error) {
+                print('Erreur lors du chargement des amis: $error');
+                if (mounted) {
+                  setState(() {
+                    allFriends = [];
+                    isLoadingFriends = false;
+                  });
+                }
+              });
+            }
+            
+            // Fonction pour sélectionner une date
+            Future<void> _selectDate(BuildContext context) async {
+              final DateTime? picked = await showDatePicker(
+                context: context,
+                initialDate: selectedDate,
+                firstDate: DateTime.now(),
+                lastDate: DateTime(2101),
+                builder: (context, child) {
+                  return Theme(
+                    data: Theme.of(context).copyWith(
+                      colorScheme: ColorScheme.light(primary: Colors.teal),
+                    ),
+                    child: child!,
+                  );
+                },
+              );
+              if (picked != null && picked != selectedDate) {
+                setState(() {
+                  selectedDate = picked;
+                  dateController.text = DateFormat('dd/MM/yyyy').format(selectedDate);
+                });
+              }
+            }
+
+            // Fonction pour sélectionner une heure
+            Future<void> _selectTime(BuildContext context) async {
+              final TimeOfDay? picked = await showTimePicker(
+                context: context,
+                initialTime: selectedTime,
+                builder: (context, child) {
+                  return Theme(
+                    data: Theme.of(context).copyWith(
+                      colorScheme: ColorScheme.light(primary: Colors.teal),
+                    ),
+                    child: child!,
+                  );
+                },
+              );
+              if (picked != null && picked != selectedTime) {
+                setState(() {
+                  selectedTime = picked;
+                  timeController.text = '${picked.hour.toString().padLeft(2, '0')}:${picked.minute.toString().padLeft(2, '0')}';
+                });
+              }
+            }
+            
+            return AlertDialog(
+              title: Text('Programmer un rendez-vous'),
+              content: Container(
+                width: double.maxFinite,  // Définit une largeur maximale
+                child: SingleChildScrollView(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        ilot.nom,
+                        style: TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                      SizedBox(height: 10),
+                      Text(ilot.adresse),
+                      SizedBox(height: 20),
+                      
+                      // Champ de date
+                      TextField(
+                        controller: dateController,
+                        decoration: InputDecoration(
+                          labelText: 'Date',
+                          prefixIcon: Icon(Icons.calendar_today),
+                          border: OutlineInputBorder(),
+                        ),
+                        readOnly: true,
+                        onTap: () => _selectDate(context),
+                      ),
+                      SizedBox(height: 16),
+                      
+                      // Champ d'heure
+                      TextField(
+                        controller: timeController,
+                        decoration: InputDecoration(
+                          labelText: 'Heure',
+                          prefixIcon: Icon(Icons.access_time),
+                          border: OutlineInputBorder(),
+                        ),
+                        readOnly: true,
+                        onTap: () => _selectTime(context),
+                      ),
+                      SizedBox(height: 20),
+                      
+                      // Liste des participants amis
+                      Text(
+                        'Inviter des amis:',
+                        style: TextStyle(fontWeight: FontWeight.bold),
+                      ),
+                      SizedBox(height: 8),
+                      
+                      // Affichage des amis avec gestion correcte de l'état
+                      isLoadingFriends
+                        ? Container(
+                            height: 80,
+                            child: Center(child: CircularProgressIndicator()),
+                          )
+                        : allFriends.isEmpty
+                          ? Container(
+                              height: 80,
+                              decoration: BoxDecoration(
+                                border: Border.all(color: Colors.grey),
+                                borderRadius: BorderRadius.circular(5),
+                              ),
+                              child: Center(
+                                child: Text(
+                                  'Aucun ami à inviter.\nAjoutez des amis depuis la page "Mes Amis".',
+                                  textAlign: TextAlign.center,
+                                  style: TextStyle(
+                                    color: Colors.grey[600],
+                                  ),
+                                ),
+                              ),
+                            )
+                          : Container(
+                              height: 150,
+                              decoration: BoxDecoration(
+                                border: Border.all(color: Colors.grey),
+                                borderRadius: BorderRadius.circular(5),
+                              ),
+                              child: ListView.builder(
+                                shrinkWrap: true,
+                                physics: ClampingScrollPhysics(),
+                                itemCount: allFriends.length,
+                                itemBuilder: (context, index) {
+                                  final friend = allFriends[index];
+                                  bool isSelected = selectedParticipants.contains(friend['id']);
+                                  
+                                  return CheckboxListTile(
+                                    title: Text('${friend['prenom']} ${friend['nom']}'),
+                                    value: isSelected,
+                                    onChanged: (bool? value) {
+                                      setState(() {
+                                        if (value == true) {
+                                          if (!selectedParticipants.contains(friend['id'])) {
+                                            selectedParticipants.add(friend['id']);
+                                          }
+                                        } else {
+                                          selectedParticipants.remove(friend['id']);
+                                        }
+                                      });
+                                    },
+                                  );
+                                },
+                              ),
+                            ),
+                    ],
+                  ),
+                ),
+              ),
+              actions: [
+                TextButton(
+                  onPressed: () => Navigator.pop(context),
+                  child: Text('Annuler'),
+                ),
+                ElevatedButton(
+                  style: ElevatedButton.styleFrom(backgroundColor: Colors.teal),
+                  onPressed: () async {
+                    if (dateController.text.isEmpty || timeController.text.isEmpty) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text('Veuillez saisir une date et une heure')),
+                      );
+                      return;
+                    }
+                    
+                    // Combiner la date et l'heure
+                    final dateStr = dateController.text;
+                    final timeStr = timeController.text;
+                    final day = int.parse(dateStr.split('/')[0]);
+                    final month = int.parse(dateStr.split('/')[1]);
+                    final year = int.parse(dateStr.split('/')[2]);
+                    final hour = int.parse(timeStr.split(':')[0]);
+                    final minute = int.parse(timeStr.split(':')[1]);
+                    
+                    final dateTime = DateTime(year, month, day, hour, minute);
+                    
+                    // Vérifier si l'utilisateur est connecté
+                    final user = FirebaseAuth.instance.currentUser;
+                    if (user == null) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(content: Text('Vous devez être connecté pour programmer un rendez-vous')),
+                      );
+                      Navigator.pop(context);
+                      return;
+                    }
+                    
+                    // Créer le rendez-vous dans Firestore
+                    try {
+                      // Créer le document du rendez-vous
+                      final docRef = await FirebaseFirestore.instance.collection('rendezvous').add({
+                        'ilotId': ilot.nom,
+                        'ilotNom': ilot.nom,
+                        'ilotAdresse': ilot.adresse,
+                        'date': Timestamp.fromDate(dateTime),
+                        'userId': user.uid,
+                        'organizerName': user.displayName ?? 'Utilisateur',
+                        'participants': selectedParticipants,
+                        'acceptedParticipants': [], // Nouvelle liste pour les participants qui ont accepté
+                        'location': GeoPoint(ilot.latitude, ilot.longitude),
+                        'createdAt': FieldValue.serverTimestamp(),
+                      });
+                      
+                      // Envoyer une notification à chaque participant
+                      for (String participantId in selectedParticipants) {
+                        await _notificationService.createRdvInvitation(
+                          rdvId: docRef.id,
+                          recipientId: participantId,
+                          rdvName: ilot.nom,
+                          rdvDate: dateTime,
+                        );
+                      }
+                      
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text('Rendez-vous programmé avec succès'),
+                          backgroundColor: Colors.green,
+                        ),
+                      );
+                      Navigator.pop(context);
+                    } catch (e) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text('Erreur lors de la programmation du rendez-vous: $e'),
+                          backgroundColor: Colors.red,
+                        ),
+                      );
+                    }
+                  },
+                  child: Text('Programmer'),
+                ),
+              ],
+            );
+          },
+        );
+      },
+    );
+  }
+
+  Future<List<Ilot>> fetchIlots() async {
+    final url = Uri.parse(
+      'https://opendata.paris.fr/api/explore/v2.1/catalog/datasets/ilots-de-fraicheur-espaces-verts-frais/records?limit=50',
+    );
+
+    final response = await http.get(url);
+
+    if (response.statusCode == 200) {
+      final body = jsonDecode(response.body);
+      final records = body['results'] as List;
+
+      return records.map<Ilot>((record) {
+        try {
+          return Ilot.fromJson(record);
+        } catch (e) {
+          print('Erreur lors du parsing d\'un record: $e');
+          return Ilot(nom: 'Nom inconnu', latitude: 0.0, longitude: 0.0);
+        }
+      }).toList();
+    } else {
+      throw Exception('Erreur lors de la récupération des données');
+    }
+  }
+
+  // Afficher la page des rendez-vous
+  void _showMesRendezVous() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => MesRendezVousPage()),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_isLoading) {
+      return Scaffold(
+        appBar: AppBar(
+          title: const Text('Carte des îlots de fraîcheur'),
+          backgroundColor: Colors.teal,
+        ),
+        body: const Center(child: CircularProgressIndicator()),
+      );
+    }
+
+    if (_error.isNotEmpty) {
+      return Scaffold(
+        appBar: AppBar(
+          title: const Text('Carte des îlots de fraîcheur'),
+          backgroundColor: Colors.teal,
+        ),
+        body: Center(child: Text(_error)),
+      );
+    }
+
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('Carte des îlots de fraîcheur'),
+        backgroundColor: Colors.teal,
+      ),
+      body: Stack(
+        children: [
+          GoogleMap(
+            mapType: MapType.normal,
+            initialCameraPosition: _initialPosition,
+            markers: _markers,
+            myLocationEnabled: true,
+            myLocationButtonEnabled: true,
+            onMapCreated: (GoogleMapController controller) {
+              _controller.complete(controller);
+            },
+          ),
+          // Bouton "Mes RDV" positionné en bas à droite
+          Positioned(
+            bottom: 30,
+            right: 20,
+            child: FloatingActionButton.extended(
+              onPressed: _showMesRendezVous,
+              label: Text('Mes RDV'),
+              icon: Icon(Icons.event),
+              backgroundColor: Colors.teal,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class MesRendezVousPage extends StatefulWidget {
   @override
   _MesRendezVousPageState createState() => _MesRendezVousPageState();

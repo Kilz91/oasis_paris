@@ -3,14 +3,14 @@ import 'package:flutter/material.dart';
 import 'package:badges/badges.dart' as badges;
 
 // Import des services
-import 'services/friend_service.dart';
+import '../../services/friend_service.dart';
 
 // Import des widgets
-import 'widgets/widget_friend/friends_list.dart';
-import 'widgets/widget_friend/sent_requests_list.dart';
-import 'widgets/widget_friend/friend_requests_dialog.dart';
-import 'widgets/widget_friend/add_friend_dialog.dart';
-import 'widgets/widget_friend/empty_friends_state.dart';
+import '../../widgets/friends/friends_list.dart';
+import '../../widgets/friends/sent_requests_list.dart';
+import '../../widgets/friends/friend_requests_dialog.dart';
+import '../../widgets/friends/add_friend_dialog.dart';
+import '../../widgets/friends/empty_friends_state.dart';
 
 class FriendPage extends StatefulWidget {
   @override

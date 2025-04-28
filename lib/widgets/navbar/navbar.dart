@@ -1,10 +1,10 @@
 import 'package:flutter/material.dart';
-import 'package:oasis_paris/chat.dart';
-import 'package:oasis_paris/profil.dart';
-import 'ilots_page.dart';
-import 'friend_page.dart';
-import 'map_page.dart';
-import 'friends_for_chat.dart';
+import 'package:oasis_paris/screens/chat/chat.dart';
+import 'package:oasis_paris/screens/profile/profil.dart';
+import 'package:oasis_paris/screens/map/ilots_page.dart';
+import 'package:oasis_paris/screens/friends/friend_page.dart';
+import 'package:oasis_paris/screens/map/map_page.dart';
+import 'package:oasis_paris/screens/friends/friends_for_chat.dart';
 
 class NavbarPage extends StatelessWidget {
   @override

@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
 import 'package:cloud_firestore/cloud_firestore.dart'; // Ajout de l'import de Firestore
-import 'profil.dart'; // N'oublie pas d'importer ta page Profil
+import '../profile/profil.dart'; // Mise à jour du chemin d'importation vers le bon dossier
 
 class RegisterPage extends StatefulWidget {
   const RegisterPage({super.key, required this.title});

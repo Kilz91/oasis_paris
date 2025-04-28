@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import '../../services/friend_service.dart';
-import '../../utils/safe_context.dart';
+import '../../core/utils/safe_context.dart';
 
 class FriendRequestsDialog extends StatefulWidget {
   final List<Map<String, dynamic>> friendRequests;

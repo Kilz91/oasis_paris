@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:firebase_auth/firebase_auth.dart';
-import 'profil.dart'; // N'oublie pas d'importer ta page Profil
+import '../profile/profil.dart'; // Chemin mis à jour vers la page profil
 import 'register_page.dart';
 
 class LoginPage extends StatefulWidget {
