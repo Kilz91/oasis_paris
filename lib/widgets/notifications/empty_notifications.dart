@@ -29,9 +29,7 @@ class EmptyNotifications extends StatelessWidget {
             child: Text(
               'Vous verrez ici les notifications concernant vos amis et vos rendez-vous',
               textAlign: TextAlign.center,
-              style: TextStyle(
-                color: Colors.grey[600],
-              ),
+              style: TextStyle(color: Colors.grey[600]),
             ),
           ),
         ],

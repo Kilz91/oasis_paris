@@ -10,7 +10,6 @@ class NavbarPage extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text("OASIS PARIS"), backgroundColor: Colors.teal),
       body: MapPage(), // Utiliser directement la carte comme page d'accueil
       bottomNavigationBar: BottomNavigationBar(
         type: BottomNavigationBarType.fixed,

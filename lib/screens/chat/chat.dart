@@ -63,7 +63,13 @@ class _ChatPageState extends State<ChatPage> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: Text(widget.friendName)),
+      backgroundColor: Color(0xFFF2F2F2), // Fond gris clair
+      appBar: AppBar(
+        title: Text(widget.friendName, style: TextStyle(color: Colors.black)),
+        backgroundColor: Colors.white,
+        elevation: 1,
+        iconTheme: IconThemeData(color: Colors.black),
+      ),
       body: Column(
         children: [
           Expanded(
@@ -86,29 +92,48 @@ class _ChatPageState extends State<ChatPage> {
                     final message = messages[index];
                     final isMe = message['senderId'] == currentUser!.uid;
                     return Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 4),
+                      padding: const EdgeInsets.symmetric(vertical: 6),
                       child: Align(
                         alignment:
                             isMe ? Alignment.centerRight : Alignment.centerLeft,
                         child: Container(
                           padding: EdgeInsets.symmetric(
-                            vertical: 10,
-                            horizontal: 14,
+                            vertical: 12,
+                            horizontal: 18,
                           ),
+                          margin: EdgeInsets.symmetric(horizontal: 8),
                           decoration: BoxDecoration(
-                            color: isMe ? Colors.blue[100] : Colors.grey[300],
-                            borderRadius: BorderRadius.circular(20),
+                            color:
+                                isMe
+                                    ? Color(
+                                      0xFFDCF8C6,
+                                    ) // Vert clair pour l'utilisateur
+                                    : const Color.fromARGB(
+                                      255,
+                                      223,
+                                      223,
+                                      223,
+                                    ), // Blanc pour l'ami
+                            borderRadius: BorderRadius.only(
+                              topLeft: Radius.circular(20),
+                              topRight: Radius.circular(20),
+                              bottomLeft: Radius.circular(isMe ? 20 : 0),
+                              bottomRight: Radius.circular(isMe ? 0 : 20),
+                            ),
                             boxShadow: [
                               BoxShadow(
-                                color: Colors.black26,
-                                offset: Offset(2, 2),
+                                color: Colors.black12,
                                 blurRadius: 4,
+                                offset: Offset(2, 2),
                               ),
                             ],
                           ),
                           child: Text(
                             message['text'] ?? 'Message vide',
-                            style: TextStyle(fontSize: 16),
+                            style: TextStyle(
+                              fontSize: 16,
+                              color: Colors.black87,
+                            ),
                           ),
                         ),
                       ),
@@ -119,14 +144,21 @@ class _ChatPageState extends State<ChatPage> {
             ),
           ),
           Padding(
-            padding: EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+            padding: EdgeInsets.symmetric(horizontal: 8, vertical: 6),
             child: Row(
               children: [
                 Expanded(
                   child: Container(
                     decoration: BoxDecoration(
-                      color: Colors.grey[200],
+                      color: Colors.white,
                       borderRadius: BorderRadius.circular(30),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black12,
+                          blurRadius: 5,
+                          offset: Offset(0, 2),
+                        ),
+                      ],
                     ),
                     child: TextField(
                       controller: _messageController,
@@ -142,9 +174,16 @@ class _ChatPageState extends State<ChatPage> {
                     ),
                   ),
                 ),
-                IconButton(
-                  icon: Icon(Icons.send, color: Colors.blue),
-                  onPressed: _sendMessage,
+                SizedBox(width: 5),
+                Container(
+                  decoration: BoxDecoration(
+                    color: Colors.teal,
+                    shape: BoxShape.circle,
+                  ),
+                  child: IconButton(
+                    icon: Icon(Icons.send, color: Colors.white),
+                    onPressed: _sendMessage,
+                  ),
                 ),
               ],
             ),
