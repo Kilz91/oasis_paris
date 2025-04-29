@@ -1671,6 +1671,9 @@ class _MesRendezVousPageState extends State<MesRendezVousPage>
 
   // Méthode pour confirmer la suppression d'un rendez-vous
   Future<void> _confirmerSuppressionRdv(BuildContext context, String rdvId) async {
+    // Capturer le context dans une variable locale avant l'opération asynchrone
+    final scaffoldMessenger = ScaffoldMessenger.of(context);
+    
     final confirm = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
@@ -1693,7 +1696,8 @@ class _MesRendezVousPageState extends State<MesRendezVousPage>
     if (confirm == true) {
       await FirebaseFirestore.instance.collection('rendezvous').doc(rdvId).delete();
       
-      ScaffoldMessenger.of(context).showSnackBar(
+      // Utiliser le ScaffoldMessenger capturé pour éviter d'accéder au contexte qui pourrait être désactivé
+      scaffoldMessenger.showSnackBar(
         SnackBar(content: Text('Rendez-vous supprimé')),
       );
     }
@@ -1722,12 +1726,29 @@ class _MesRendezVousPageState extends State<MesRendezVousPage>
                   // Convertir List<UserModel> en List<Map<String, dynamic>>
                   List<Map<String, dynamic>> friends = friendModels.map((user) => _userModelToMap(user)).toList();
                   
-                  // Filtrer pour exclure les participants déjà invités
-                  final List<dynamic> currentParticipants = rdvData['participants'] ?? [];
+                  // Extraire la liste des IDs des participants existants, quel que soit le format
+                  List<String> existingParticipantIds = [];
+                  if (rdvData['participants'] is List) {
+                    existingParticipantIds = (rdvData['participants'] as List<dynamic>).map((p) => p.toString()).toList();
+                  } else if (rdvData['participants'] is Map) {
+                    existingParticipantIds = (rdvData['participants'] as Map).keys.map((k) => k.toString()).toList();
+                  }
+                  
+                  // Ajouter l'ID du créateur à la liste des participants à exclure
+                  if (!existingParticipantIds.contains(organizerId)) {
+                    existingParticipantIds.add(organizerId);
+                  }
+                  
+                  // Filtrer pour exclure les participants déjà invités et le créateur du rendez-vous
                   allFriends = friends.where((friend) => 
-                    !currentParticipants.contains(friend['id'])
+                    !existingParticipantIds.contains(friend['id'])
                   ).toList();
+                  
                   isLoading = false;
+                  
+                  // Log pour le débogage
+                  print('Amis disponibles à proposer: ${allFriends.length}');
+                  print('IDs des participants existants et créateur: $existingParticipantIds');
                 });
               }).catchError((error) {
                 print('Erreur lors du chargement des amis: $error');
@@ -1766,7 +1787,7 @@ class _MesRendezVousPageState extends State<MesRendezVousPage>
                               ),
                               child: Center(
                                 child: Text(
-                                  'Aucun ami disponible à proposer.',
+                                  'Aucun ami disponible à proposer.\nTous vos amis sont déjà invités ou créateurs du rendez-vous.',
                                   textAlign: TextAlign.center,
                                   style: TextStyle(color: Colors.grey[600]),
                                 ),
