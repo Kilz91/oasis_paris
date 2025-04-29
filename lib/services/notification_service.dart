@@ -210,18 +210,51 @@ class NotificationService {
     required String organizerId,
     required String newParticipantId,
     required String newParticipantName,
-  }) {
-    return createNotification(
-      userId: organizerId,
-      title: 'Proposition de participant',
-      message: '$newParticipantName a été proposé comme participant pour "$rdvName"',
-      type: NotificationType.participantRequest,
-      data: {
-        'rendezvousId': rdvId,
-        'newParticipantId': newParticipantId,
-        'newParticipantName': newParticipantName,
-      },
-    );
+  }) async {
+    print('🔍 Création d\'une proposition de participant:');
+    print('🔍 Organisateur ID: $organizerId');
+    print('🔍 RDV ID: $rdvId');
+    print('🔍 Nom du participant proposé: $newParticipantName');
+    
+    try {
+      // Vérifier d'abord si l'organisateur existe
+      final organizerDoc = await _firestore.collection('users').doc(organizerId).get();
+      if (!organizerDoc.exists) {
+        print('⚠️ ERREUR: L\'organisateur avec ID $organizerId n\'existe pas dans Firestore.');
+        return null;
+      }
+      
+      // Vérifier si le rendez-vous existe
+      final rdvDoc = await _firestore.collection('rendezvous').doc(rdvId).get();
+      if (!rdvDoc.exists) {
+        print('⚠️ ERREUR: Le rendez-vous avec ID $rdvId n\'existe pas dans Firestore.');
+        return null;
+      }
+      
+      // Créer la notification
+      final notificationId = await createNotification(
+        userId: organizerId,
+        title: 'Proposition de participant',
+        message: '$newParticipantName a été proposé comme participant pour "$rdvName"',
+        type: NotificationType.participantRequest,
+        data: {
+          'rendezvousId': rdvId,
+          'newParticipantId': newParticipantId,
+          'newParticipantName': newParticipantName,
+        },
+      );
+      
+      if (notificationId != null) {
+        print('✅ Notification de proposition créée avec succès, ID: $notificationId');
+      } else {
+        print('⚠️ ERREUR: Échec de la création de la notification de proposition');
+      }
+      
+      return notificationId;
+    } catch (e) {
+      print('⚠️ ERREUR lors de la création de la notification de proposition: $e');
+      return null;
+    }
   }
   
   // Traiter l'acceptation d'une proposition de participant
