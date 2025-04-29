@@ -223,4 +223,76 @@ class NotificationService {
       },
     );
   }
+  
+  // Traiter l'acceptation d'une proposition de participant
+  Future<bool> acceptParticipantRequest({
+    required String notificationId,
+    required String rdvId,
+    required String newParticipantId,
+    required String newParticipantName,
+    required String rdvName,
+    required DateTime rdvDate,
+  }) async {
+    try {
+      // 1. Mettre à jour le document de rendez-vous pour ajouter le nouveau participant
+      final rdvRef = _firestore.collection('rendezvous').doc(rdvId);
+      final rdvDoc = await rdvRef.get();
+      
+      if (!rdvDoc.exists) {
+        print('Le rendez-vous n\'existe plus');
+        return false;
+      }
+      
+      // Obtenir l'organisateur pour l'envoyer dans la notification d'invitation
+      final rdvData = rdvDoc.data() as Map<String, dynamic>;
+      final organizerName = rdvData['organizerName'] ?? 'Un organisateur';
+      
+      // Mise à jour du document en fonction du format des participants (liste ou map)
+      if (rdvData['participants'] is List) {
+        await rdvRef.update({
+          'participants': FieldValue.arrayUnion([newParticipantId]),
+        });
+      } else if (rdvData['participants'] is Map) {
+        await rdvRef.update({
+          'participants.$newParticipantId': 'pending',
+        });
+      } else {
+        // Si le format n'est pas reconnu, utiliser une map par défaut
+        await rdvRef.update({
+          'participants': {newParticipantId: 'pending'},
+        });
+      }
+      
+      // 2. Envoyer une notification d'invitation au nouveau participant
+      await createRendezvousInvitationNotification(
+        userId: newParticipantId,
+        senderName: organizerName,
+        rendezvousId: rdvId,
+        rendezvousName: rdvName,
+        rendezvousDate: rdvDate,
+      );
+      
+      // 3. Marquer la notification de proposition comme lue
+      await markAsRead(notificationId);
+      
+      return true;
+    } catch (e) {
+      print('Erreur lors de l\'acceptation de la proposition de participant: $e');
+      return false;
+    }
+  }
+  
+  // Refuser une proposition de participant
+  Future<bool> rejectParticipantRequest({
+    required String notificationId,
+  }) async {
+    try {
+      // Marquer simplement la notification comme lue
+      await markAsRead(notificationId);
+      return true;
+    } catch (e) {
+      print('Erreur lors du refus de la proposition de participant: $e');
+      return false;
+    }
+  }
 }

@@ -365,37 +365,54 @@ class _NotificationsPageState extends State<NotificationsPage>
     BuildContext context, NotificationModel notification, 
     String rdvId, String participantId, bool accept) async {
     try {
-      final rdvService = RdvService();
-      
       if (accept) {
-        // Ajouter le participant au rendez-vous
-        // Récupérer d'abord les détails du rendez-vous
+        // Récupérer les informations nécessaires pour créer l'invitation
+        final rdvService = RdvService();
         final rdvDetails = await rdvService.getRendezVousDetails(rdvId);
         
-        if (rdvDetails != null) {
-          // Puis utiliser la méthode getAllParticipantIds() sur l'objet non-null
-          final currentParticipants = rdvDetails.getAllParticipantIds();
-          await rdvService.updateRendezVous(
-            rdvId: rdvId,
-            participants: [...currentParticipants, participantId],
-          );
-        } else {
-          throw Exception("Détails du rendez-vous non trouvés");
+        if (rdvDetails == null) {
+          throw Exception("Le rendez-vous n'existe plus");
         }
+        
+        // Utiliser la nouvelle méthode pour accepter la proposition de participant
+        final participantName = notification.data?['newParticipantName'] as String? ?? 'Ami';
+        final success = await _notificationService.acceptParticipantRequest(
+          notificationId: notification.id,
+          rdvId: rdvId,
+          newParticipantId: participantId,
+          newParticipantName: participantName,
+          rdvName: rdvDetails.ilotNom ?? 'Rendez-vous',
+          rdvDate: rdvDetails.date,
+        );
+        
+        if (!success) {
+          throw Exception("Erreur lors de l'ajout du participant");
+        }
+        
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Invitation envoyée à $participantName'),
+            backgroundColor: Colors.green,
+          ),
+        );
+      } else {
+        // Refuser la proposition
+        await _notificationService.rejectParticipantRequest(
+          notificationId: notification.id,
+        );
+        
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text('Proposition refusée'),
+            backgroundColor: Colors.orange,
+          ),
+        );
       }
-      
-      // Marquer la notification comme lue
+    } catch (e) {
+      // Marquer la notification comme lue même en cas d'erreur
+      // pour éviter que l'utilisateur ne puisse pas la traiter à nouveau
       await _notificationService.markAsRead(notification.id);
       
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(accept 
-            ? 'Participant ajouté avec succès'
-            : 'Participant non ajouté'),
-          backgroundColor: accept ? Colors.green : Colors.orange,
-        ),
-      );
-    } catch (e) {
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
           content: Text('Erreur: $e'),
