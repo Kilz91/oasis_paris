@@ -72,15 +72,15 @@ class _FriendRequestsDialogState extends State<FriendRequestsDialog> {
                     margin: EdgeInsets.only(bottom: 8),
                     child: ListTile(
                       leading: CircleAvatar(
-                        backgroundImage: request['photoURL'] != null
-                            ? NetworkImage(request['photoURL'])
+                        backgroundImage: request['sender'].photoURL != null
+                            ? NetworkImage(request['sender'].photoURL)
                             : AssetImage('assets/profil.png') as ImageProvider,
                       ),
                       title: Text(
-                        '${request['prenom']} ${request['nom']}',
+                        '${request['sender'].firstName} ${request['sender'].lastName}',
                         style: TextStyle(fontWeight: FontWeight.bold),
                       ),
-                      subtitle: Text(request['email']),
+                      subtitle: Text(request['sender'].email),
                       trailing: Row(
                         mainAxisSize: MainAxisSize.min,
                         children: [
@@ -115,8 +115,9 @@ class _FriendRequestsDialogState extends State<FriendRequestsDialog> {
     Navigator.of(context).pop();
     
     final friendService = FriendService();
-    final requestId = request['requestId'];
-    final friendId = request['id'];
+    // Accéder correctement à l'ID de la demande et à l'ID de l'ami
+    final requestId = request['request'].id;
+    final friendId = request['sender'].uid;
     
     final success = await friendService.acceptFriendRequest(requestId, friendId);
     
@@ -137,7 +138,8 @@ class _FriendRequestsDialogState extends State<FriendRequestsDialog> {
     Navigator.of(context).pop();
     
     final friendService = FriendService();
-    final requestId = request['requestId'];
+    // Accéder correctement à l'ID de la demande
+    final requestId = request['request'].id;
     
     final success = await friendService.rejectFriendRequest(requestId);
     
