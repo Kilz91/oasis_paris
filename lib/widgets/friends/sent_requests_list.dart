@@ -55,12 +55,12 @@ class _SentRequestsListState extends State<SentRequestsList> {
             child: ListTile(
               contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 4),
               leading: CircleAvatar(
-                backgroundImage: request['photoURL'] != null
-                    ? NetworkImage(request['photoURL'])
+                backgroundImage: request['receiver'].photoURL != null
+                    ? NetworkImage(request['receiver'].photoURL)
                     : AssetImage('assets/profil.png') as ImageProvider,
               ),
               title: Text(
-                '${request['prenom']} ${request['nom']}',
+                '${request['receiver'].firstName} ${request['receiver'].lastName}',
                 style: TextStyle(fontWeight: FontWeight.bold),
               ),
               subtitle: Row(
@@ -95,7 +95,9 @@ class _SentRequestsListState extends State<SentRequestsList> {
 
   void _cancelFriendRequest(Map<String, dynamic> request) async {
     final friendService = FriendService();
-    final success = await friendService.cancelFriendRequest(request['requestId']);
+    // Correction: accéder à l'ID via l'objet request.request au lieu de requestId
+    final requestId = request['request'].id;
+    final success = await friendService.cancelFriendRequest(requestId);
     
     if (success) {
       // Utiliser le contexte sécurisé pour afficher le SnackBar
